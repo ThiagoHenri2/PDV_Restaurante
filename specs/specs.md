@@ -11,7 +11,7 @@
 | Ciclo | Descrição | Status |
 |---|---|---|
 | 0 | Fundação técnica + estrutura agêntica + GitHub | ✅ Concluído |
-| 1 | Autenticação e Administração | ⬜ Não iniciado |
+| 1 | Autenticação e Administração | ✅ Concluído |
 | 2 | Caixa: base (mesas, config. de preço, abertura/fechamento) | ⬜ Não iniciado |
 | 3 | Atendimento self-service (comandas) | ⬜ Não iniciado |
 | 4 | Finalização de pagamento (cálculo, desconto, split, fiado) | ⬜ Não iniciado |
@@ -152,8 +152,31 @@
   (Vite dev server).
 - Estrutura `.claude/` (CLAUDE.md, agents, skills) e este `specs.md`.
 
-## Próximo ciclo (Ciclo 1 — Autenticação e Administração)
+## Ciclo 1 — o que foi entregue
 
-Escopo: RF01–RF05. Entregar tela de login na SPA, modelo de papéis e
-permissões em `contas`, e um fluxo (via Django Admin customizado ou tela
-própria) para o administrador criar usuários e atribuir papéis.
+- Papéis implementados como `django.contrib.auth.models.Group`
+  (Administrador, Caixa, Atendente, Estoquista), criados automaticamente
+  por uma migration de dados (`contas/migrations/0003_seed_papeis.py`).
+- Permissão DRF reutilizável por papel: `contas.permissions.exige_papel(...)`
+  — super usuário sempre passa (usado para o primeiro acesso).
+- `LogAuditoria` (modelo + `contas.auditoria.registrar_auditoria(...)`),
+  usado para registrar criação/edição/desativação de usuário; será
+  reutilizado pelos próximos ciclos (caixa, estoque, clientes).
+- Endpoints: `POST /api/auth/token/` e `/token/refresh/` (login JWT),
+  `GET /api/auth/me/` (usuário logado + papéis), `GET /api/papeis/`,
+  `GET/POST/PATCH/DELETE /api/usuarios/` (DELETE desativa em vez de
+  excluir, para não quebrar histórico de outros módulos).
+- Frontend: `AuthContext` (guarda o estado de login), `RotaProtegida`
+  (bloqueia rota por autenticação e, opcionalmente, por papel), páginas
+  `Login`, `Home` e `AdminUsuarios` (criar usuário com papéis, listar,
+  desativar).
+- Testado manualmente via API (login, listar papéis, criar usuário com
+  papel, log de auditoria gerado) e verificação de tipos do frontend
+  (`tsc -b`) sem erros. **Não testado em navegador real** — pendente de
+  confirmação visual pelo usuário.
+
+## Próximo ciclo (Ciclo 2 — Caixa: base)
+
+Escopo: RF06–RF10. Cadastro de mesas, configuração de preços (prato
+simples + unidade extra de proteína), abertura/fechamento de caixa,
+sangria/suprimento.

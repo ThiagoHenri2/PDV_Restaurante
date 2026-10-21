@@ -99,7 +99,8 @@ docker compose exec frontend npm test
 
 ## Estado atual
 
-Ciclo 0 concluído: esqueleto do backend (Django+DRF) e do frontend
-(React+Vite) rodando via Docker Compose, com uma tela simples confirmando a
-conexão entre os dois. Próximo: Ciclo 1 (autenticação e administração de
-usuários/papéis) — ver `specs/specs.md`.
+Ciclos 0 e 1 concluídos: esqueleto do backend/frontend rodando via Docker
+Compose, autenticação JWT, papéis (Administrador/Caixa/Atendente/
+Estoquista) via `django.contrib.auth.models.Group`, CRUD de usuários e log
+de auditoria. Próximo: Ciclo 2 (Caixa: mesas, configuração de preço,
+abertura/fechamento) — ver `specs/specs.md`.
