@@ -13,7 +13,7 @@
 | 0 | Fundação técnica + estrutura agêntica + GitHub | ✅ Concluído |
 | 1 | Autenticação e Administração | ✅ Concluído |
 | 2 | Caixa: base (mesas, config. de preço, abertura/fechamento) | ✅ Concluído |
-| 3 | Atendimento self-service (comandas) | ⬜ Não iniciado |
+| 3 | Atendimento self-service (comandas) | ✅ Concluído |
 | 4 | Finalização de pagamento (cálculo, desconto, split, fiado) | ⬜ Não iniciado |
 | 5 | Produtos, Avulso/Delivery e Estoque | ⬜ Não iniciado |
 | 6 | Clientes / Fiado | ⬜ Não iniciado |
@@ -200,16 +200,47 @@
   ambiente local (mesa 1, um caixa já fechado, configuração de preço
   R$25/R$8) — é só dados de desenvolvimento, sem problema em apagar.
 
-## Próximo ciclo (Ciclo 3 — Atendimento self-service)
+## Ciclo 3 — o que foi entregue
 
-Escopo: RF18, RF19, RF21–RF24. Alocar cliente à mesa (abrir comanda),
-lançar quantidade de pratos + extras de proteína, editar/cancelar item,
-transferir comanda entre mesas, consultar status, fechar comanda (sem
-calcular pagamento ainda — isso é o Ciclo 4).
+- Modelos no app `atendimento`: `Comanda` (N:1 `Mesa`, status
+  aberta/fechada, quantidade de pessoas) e `ItemComandaPrato` (N:1
+  `Comanda`; cada lançamento do atendente tem quantidade de pratos e de
+  extras de proteína; editar/cancelar não apaga o registro — só marca
+  `cancelado=True` com quem e quando, para manter o histórico de
+  auditoria).
+- `Comanda.valor_parcial_estimado()` soma os itens não cancelados usando a
+  `ConfiguracaoPreco` atual (mesma regra central: valor do prato +
+  qtd. extras × valor da unidade extra) — ainda é só uma estimativa; o
+  cálculo oficial de pagamento é do Ciclo 4.
+- Abrir uma comanda (`POST /api/comandas/`) ocupa a mesa automaticamente;
+  fechar (`/fechar/`) ou transferir (`/transferir/`) libera/ocupa as mesas
+  envolvidas. Não é possível abrir uma comanda numa mesa já ocupada, nem
+  transferir para uma mesa ocupada.
+- Endpoints: `/api/comandas/` (abrir, listar, consultar) com ações
+  `transferir` e `fechar`; `/api/itens-comanda-prato/` (lançar, editar via
+  PATCH, listar) com ação `cancelar`. Todas as ações sensíveis (abrir,
+  transferir, fechar comanda; adicionar, editar, cancelar item) geram
+  `LogAuditoria`.
+- Frontend: página `Atendimento` (grade de mesas — toca numa mesa livre
+  para abrir comanda, numa ocupada para ver a comanda atual) e página de
+  detalhe da comanda (lançar pratos/extras, editar ou cancelar cada item,
+  ver valor parcial estimado, transferir para outra mesa, fechar comanda).
+  Acessível pelo menu da Home para Administrador, Caixa e Atendente.
+- Testado manualmente via API (abrir comanda, lançar dois itens, editar
+  um, cancelar outro, transferir entre mesas, fechar — valor parcial
+  calculado corretamente em cada passo, mesas ocupando/liberando certo) e
+  verificação de tipos do frontend (`tsc -b`) sem erros.
 
-**Ajuste de ordem em relação ao plano original**: RF20 (bebidas/
-sobremesas na comanda) depende de `Produto` existir, e `Produto` só é
-criado no Ciclo 5 (Estoque/Produtos). Em vez de criar uma solução
-provisória em texto livre que seria jogada fora depois, RF20 fica para
-ser implementado junto do Ciclo 5, quando `Produto` já existir de
-verdade — evita retrabalho.
+**Ajuste de ordem em relação ao plano original (mantido)**: RF20 (bebidas/
+sobremesas na comanda) continua adiado para o Ciclo 5, quando `Produto`
+existir de verdade.
+
+## Próximo ciclo (Ciclo 4 — Finalização de pagamento)
+
+Escopo: RF11–RF13, RF16. Calcular o valor final da comanda (pratos +
+extras, usando `Comanda.valor_parcial_estimado()` como base), aplicar
+desconto (fixo ou percentual), suportar múltiplas formas de pagamento e
+split entre pessoas, e permitir vincular o pagamento a um cliente fiado —
+este último ponto fica como um FK opcional "preparado" para o Ciclo 6
+(`clientes`), já que o modelo `Cliente` ainda não existe; se necessário,
+seguimos o mesmo padrão de adiamento usado para RF20.

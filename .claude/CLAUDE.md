@@ -97,6 +97,26 @@ docker compose exec frontend npm test
 - API em desenvolvimento: http://localhost:8000/api/
 - Django Admin: http://localhost:8000/admin/
 
+## Depois de qualquer alteração de código, antes de pedir para o usuário testar
+
+O HMR do Vite e o autoreload do Django nem sempre pegam tudo (observado no
+Ciclo 1: o navegador do usuário continuou mostrando a tela antiga mesmo
+depois de hard refresh, fechar o navegador inteiro e trocar de navegador —
+só resolveu depois de recriar os containers do zero). Por isso, **sempre**
+que terminar uma implementação (não só no fim do ciclo, depois de qualquer
+leva de mudanças de código do backend ou do frontend), antes de dizer ao
+usuário que pode testar, rodar:
+
+```bash
+docker compose down
+docker compose up --build -d
+```
+
+Não basta `docker compose restart`. Só depois disso pedir para o usuário
+testar no navegador (e, se possível, validar antes com curl/Invoke-
+WebRequest que o conteúdo novo está sendo servido, como já é feito nas
+verificações manuais de cada ciclo).
+
 ## Fluxo entre ciclos
 
 Assim que o usuário confirmar que um ciclo está funcionando (testado por
@@ -110,10 +130,12 @@ contexto relevante.
 
 ## Estado atual
 
-Ciclos 0, 1 e 2 concluídos: esqueleto do backend/frontend, autenticação
-JWT e papéis, e agora o módulo Caixa (mesas, configuração de preço,
-abertura/fechamento de caixa, sangria/suprimento) funcionando de ponta a
-ponta. Próximo: Ciclo 3 (Atendimento self-service — comandas, pratos e
-extras de proteína). Nota: RF20 (bebidas/sobremesas na comanda) foi
-adiado para o Ciclo 5, porque depende do modelo `Produto` que só existe
-lá — ver `specs/specs.md`.
+Ciclos 0, 1, 2 e 3 concluídos: esqueleto do backend/frontend, autenticação
+JWT e papéis, módulo Caixa (mesas, configuração de preço, abertura/
+fechamento de caixa, sangria/suprimento) e agora o módulo Atendimento
+(abrir comanda numa mesa, lançar/editar/cancelar pratos + extras de
+proteína, transferir comanda entre mesas, fechar comanda) funcionando de
+ponta a ponta. Próximo: Ciclo 4 (Finalização de pagamento — cálculo final,
+desconto, split, vínculo com fiado). Nota: RF20 (bebidas/sobremesas na
+comanda) continua adiado para o Ciclo 5, porque depende do modelo
+`Produto` que só existe lá — ver `specs/specs.md`.

@@ -31,6 +31,15 @@ export default function Home() {
         </p>
 
         <div className="mt-6 space-y-2">
+          {temPapel(usuario, "Administrador", "Caixa", "Atendente") && (
+            <Link
+              to="/atendimento"
+              className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Atendimento →
+            </Link>
+          )}
+
           {temPapel(usuario, "Administrador", "Caixa") && (
             <>
               <Link

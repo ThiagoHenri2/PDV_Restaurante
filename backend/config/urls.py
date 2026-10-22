@@ -19,4 +19,5 @@ urlpatterns = [
     path("api/auth/me/", EuView.as_view(), name="auth_me"),
     path("api/", include("contas.urls")),
     path("api/", include("caixa.urls")),
+    path("api/", include("atendimento.urls")),
 ]
