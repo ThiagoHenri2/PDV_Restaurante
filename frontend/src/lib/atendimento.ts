@@ -19,6 +19,21 @@ export interface ResumoPagamentoComanda {
   registrado_em: string;
 }
 
+export interface ItemComandaProduto {
+  id: number;
+  comanda: number;
+  produto: number;
+  produto_nome: string;
+  quantidade: number;
+  preco_unitario: string;
+  subtotal: number;
+  registrado_por_username: string | null;
+  registrado_em: string;
+  cancelado: boolean;
+  cancelado_por_username: string | null;
+  cancelado_em: string | null;
+}
+
 export interface Comanda {
   id: number;
   mesa: number;
@@ -30,6 +45,7 @@ export interface Comanda {
   fechada_por_username: string | null;
   fechada_em: string | null;
   itens_prato: ItemComandaPrato[];
+  itens_produto: ItemComandaProduto[];
   valor_parcial_estimado: number;
   pago: boolean;
   pagamento: ResumoPagamentoComanda | null;

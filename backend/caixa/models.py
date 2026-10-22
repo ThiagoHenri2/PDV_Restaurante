@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from estoque.models import Produto
+
 
 class Mesa(models.Model):
     LIVRE = "livre"
@@ -80,7 +82,10 @@ class Caixa(models.Model):
         total_recebido_dinheiro = RecebimentoPagamento.objects.filter(
             pagamento__caixa=self, forma=RecebimentoPagamento.DINHEIRO
         ).aggregate(total=models.Sum("valor"))["total"] or 0
-        return self.valor_abertura + total_movimentos + total_recebido_dinheiro
+        total_avulso_dinheiro = PedidoAvulso.objects.filter(
+            caixa=self, status=PedidoAvulso.CONFIRMADO, forma_pagamento=RecebimentoPagamento.DINHEIRO
+        ).aggregate(total=models.Sum("valor_total"))["total"] or 0
+        return self.valor_abertura + total_movimentos + total_recebido_dinheiro + total_avulso_dinheiro
 
 
 class MovimentoCaixaQuerySet(models.QuerySet):
@@ -192,3 +197,91 @@ class RecebimentoPagamento(models.Model):
 
     def __str__(self):
         return f"{self.forma}: R${self.valor}"
+
+
+class PedidoAvulso(models.Model):
+    """
+    Pedido avulso de balcão (marmitex/produtos) ou delivery (RF14/RF15).
+    Começa como um "carrinho" (`aberto`): itens podem ser adicionados ou
+    removidos livremente, nada de estoque/caixa é afetado ainda. Ao
+    `confirmar`, vira um registro financeiro definitivo (RNF06, mesmo
+    padrão do `Pagamento`): baixa o estoque de cada item (RF28), soma o
+    recebido em dinheiro ao caixa (se a forma de pagamento for dinheiro) e
+    não pode mais ser editado. Não existe desconto/split aqui (diferente
+    do pagamento de comanda) — é uma venda direta de balcão, uma forma de
+    pagamento só.
+    """
+
+    BALCAO = "balcao"
+    DELIVERY = "delivery"
+    TIPO_CHOICES = [(BALCAO, "Balcão"), (DELIVERY, "Delivery")]
+
+    ABERTO = "aberto"
+    CONFIRMADO = "confirmado"
+    CANCELADO = "cancelado"
+    STATUS_CHOICES = [
+        (ABERTO, "Aberto (carrinho)"),
+        (CONFIRMADO, "Confirmado"),
+        (CANCELADO, "Cancelado"),
+    ]
+
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=ABERTO)
+    endereco = models.CharField(max_length=255, blank=True, default="")
+    forma_pagamento = models.CharField(
+        max_length=10, choices=RecebimentoPagamento.FORMA_CHOICES, null=True, blank=True
+    )
+    valor_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    caixa = models.ForeignKey(
+        Caixa, on_delete=models.PROTECT, null=True, blank=True, related_name="pedidos_avulsos"
+    )
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="pedidos_avulsos_criados"
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    confirmado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pedidos_avulsos_confirmados",
+    )
+    confirmado_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"Pedido avulso #{self.pk} ({self.tipo}/{self.status})"
+
+    def valor_calculado(self):
+        return sum((item.subtotal() for item in self.itens.all()), 0)
+
+    def texto_whatsapp(self):
+        linhas = ["*Pedido PDV Restaurante*", ""]
+        for item in self.itens.all():
+            linhas.append(f"{item.quantidade}x {item.produto.nome} - R${item.subtotal():.2f}")
+        linhas.append("")
+        linhas.append(f"*Total: R${self.valor_calculado():.2f}*")
+        if self.tipo == self.DELIVERY:
+            linhas.append(f"Endereço: {self.endereco or 'não informado'}")
+        return "\n".join(linhas)
+
+
+class ItemPedidoAvulso(models.Model):
+    """
+    Um item do "carrinho" de um `PedidoAvulso`. Só pode ser adicionado ou
+    removido enquanto o pedido estiver `aberto` — ver
+    `caixa.views.ItemPedidoAvulsoViewSet`.
+    """
+
+    pedido = models.ForeignKey(PedidoAvulso, on_delete=models.CASCADE, related_name="itens")
+    produto = models.ForeignKey(Produto, on_delete=models.PROTECT, related_name="+")
+    quantidade = models.PositiveIntegerField()
+    preco_unitario = models.DecimalField(max_digits=8, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.quantidade}x {self.produto.nome} - pedido #{self.pedido_id}"
+
+    def subtotal(self):
+        return self.quantidade * self.preco_unitario

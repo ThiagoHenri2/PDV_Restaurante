@@ -130,15 +130,16 @@ contexto relevante.
 
 ## Estado atual
 
-Ciclos 0 a 4 concluídos: esqueleto do backend/frontend, autenticação JWT e
+Ciclos 0 a 5 concluídos: esqueleto do backend/frontend, autenticação JWT e
 papéis, módulo Caixa (mesas, configuração de preço, abertura/fechamento de
-caixa, sangria/suprimento), módulo Atendimento (abrir comanda, lançar/
-editar/cancelar pratos + extras de proteína, transferir comanda, fechar
-comanda) e agora a finalização de pagamento (`caixa.Pagamento` +
-`RecebimentoPagamento`: cálculo a partir do valor parcial da comanda,
-desconto fixo/percentual, múltiplas formas de pagamento/split, saldo do
-caixa somando só o dinheiro recebido) funcionando de ponta a ponta.
-Próximo: Ciclo 5 (Produtos, Avulso/Delivery e Estoque). Notas de escopo
-adiado (ver `specs/specs.md`): RF20 (bebidas/sobremesas na comanda) vai
-para o Ciclo 5, quando `Produto` existir; RF16 (vincular pagamento a
-cliente fiado) vai para o Ciclo 6, quando `Cliente` existir.
+caixa, sangria/suprimento, pagamento de comanda com desconto/split),
+módulo Atendimento (abrir comanda, lançar/editar/cancelar pratos + extras
+de proteína, lançar/cancelar bebidas e sobremesas, transferir e fechar
+comanda) e agora o módulo Estoque (`ItemEstoque`/`MovimentoEstoque`/
+`Produto`, com baixa automática ao vender e entrada/ajuste manual para os
+itens de buffet) e Avulso/Delivery (`caixa.PedidoAvulso`, carrinho →
+confirmação por forma de pagamento → texto WhatsApp) funcionando de ponta
+a ponta. Próximo: Ciclo 6 (Clientes / Fiado). Nota de escopo adiado (ver
+`specs/specs.md`): RF16 (vincular pagamento/avulso a cliente fiado) vai
+para o Ciclo 6, quando `Cliente` existir — precisa de um FK opcional novo
+em `caixa.Pagamento` e `caixa.PedidoAvulso`.

@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import Caixa, ConfiguracaoPreco, Mesa, MovimentoCaixa, Pagamento, RecebimentoPagamento
+from .models import (
+    Caixa,
+    ConfiguracaoPreco,
+    ItemPedidoAvulso,
+    Mesa,
+    MovimentoCaixa,
+    Pagamento,
+    PedidoAvulso,
+    RecebimentoPagamento,
+)
 
 admin.site.register(Mesa)
 admin.site.register(ConfiguracaoPreco)
@@ -28,3 +37,16 @@ class PagamentoAdmin(admin.ModelAdmin):
     list_display = ["id", "comanda", "caixa", "valor_bruto", "valor_final", "registrado_por", "registrado_em"]
     list_filter = ["tipo_desconto"]
     inlines = [RecebimentoPagamentoInline]
+
+
+class ItemPedidoAvulsoInline(admin.TabularInline):
+    model = ItemPedidoAvulso
+    extra = 0
+    readonly_fields = ["preco_unitario"]
+
+
+@admin.register(PedidoAvulso)
+class PedidoAvulsoAdmin(admin.ModelAdmin):
+    list_display = ["id", "tipo", "status", "valor_total", "forma_pagamento", "criado_por", "criado_em"]
+    list_filter = ["tipo", "status"]
+    inlines = [ItemPedidoAvulsoInline]

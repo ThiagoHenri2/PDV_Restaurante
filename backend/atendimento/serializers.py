@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Comanda, ItemComandaPrato
+from .models import Comanda, ItemComandaPrato, ItemComandaProduto
 
 
 class ItemComandaPratoSerializer(serializers.ModelSerializer):
@@ -33,6 +33,45 @@ class ItemComandaPratoSerializer(serializers.ModelSerializer):
         ]
 
 
+class ItemComandaProdutoSerializer(serializers.ModelSerializer):
+    produto_nome = serializers.CharField(source="produto.nome", read_only=True)
+    registrado_por_username = serializers.CharField(
+        source="registrado_por.username", read_only=True, default=None
+    )
+    cancelado_por_username = serializers.CharField(
+        source="cancelado_por.username", read_only=True, default=None
+    )
+    subtotal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ItemComandaProduto
+        fields = [
+            "id",
+            "comanda",
+            "produto",
+            "produto_nome",
+            "quantidade",
+            "preco_unitario",
+            "subtotal",
+            "registrado_por_username",
+            "registrado_em",
+            "cancelado",
+            "cancelado_por_username",
+            "cancelado_em",
+        ]
+        read_only_fields = [
+            "preco_unitario",
+            "registrado_por_username",
+            "registrado_em",
+            "cancelado",
+            "cancelado_por_username",
+            "cancelado_em",
+        ]
+
+    def get_subtotal(self, obj):
+        return obj.subtotal()
+
+
 class ComandaSerializer(serializers.ModelSerializer):
     mesa_numero = serializers.IntegerField(source="mesa.numero", read_only=True)
     aberta_por_username = serializers.CharField(
@@ -42,6 +81,7 @@ class ComandaSerializer(serializers.ModelSerializer):
         source="fechada_por.username", read_only=True, default=None
     )
     itens_prato = ItemComandaPratoSerializer(many=True, read_only=True)
+    itens_produto = ItemComandaProdutoSerializer(many=True, read_only=True)
     valor_parcial_estimado = serializers.SerializerMethodField()
     pago = serializers.SerializerMethodField()
     pagamento = serializers.SerializerMethodField()
@@ -59,6 +99,7 @@ class ComandaSerializer(serializers.ModelSerializer):
             "fechada_por_username",
             "fechada_em",
             "itens_prato",
+            "itens_produto",
             "valor_parcial_estimado",
             "pago",
             "pagamento",

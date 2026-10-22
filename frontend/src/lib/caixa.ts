@@ -60,3 +60,32 @@ export interface Pagamento {
   registrado_em: string;
   recebimentos: RecebimentoPagamento[];
 }
+
+export type TipoPedidoAvulso = "balcao" | "delivery";
+export type StatusPedidoAvulso = "aberto" | "confirmado" | "cancelado";
+
+export interface ItemPedidoAvulso {
+  id: number;
+  pedido: number;
+  produto: number;
+  produto_nome: string;
+  quantidade: number;
+  preco_unitario: string;
+  subtotal: number;
+}
+
+export interface PedidoAvulso {
+  id: number;
+  tipo: TipoPedidoAvulso;
+  status: StatusPedidoAvulso;
+  endereco: string;
+  forma_pagamento: FormaPagamento | null;
+  valor_total: string | null;
+  caixa: number | null;
+  criado_por_username: string | null;
+  criado_em: string;
+  confirmado_por_username: string | null;
+  confirmado_em: string | null;
+  itens: ItemPedidoAvulso[];
+  valor_calculado: number;
+}

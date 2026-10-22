@@ -60,6 +60,29 @@ export default function Home() {
               >
                 Configuração de preço →
               </Link>
+              <Link
+                to="/caixa/avulso"
+                className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Avulso / Delivery →
+              </Link>
+            </>
+          )}
+
+          {temPapel(usuario, "Administrador", "Caixa", "Estoquista") && (
+            <>
+              <Link
+                to="/estoque/produtos"
+                className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Produtos →
+              </Link>
+              <Link
+                to="/estoque/itens"
+                className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Itens de estoque →
+              </Link>
             </>
           )}
 

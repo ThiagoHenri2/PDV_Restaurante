@@ -11,14 +11,26 @@ from rest_framework.viewsets import ModelViewSet
 from atendimento.models import Comanda
 from contas.auditoria import registrar_auditoria
 from contas.permissions import exige_papel
+from estoque import services as estoque_services
 
-from .models import Caixa, ConfiguracaoPreco, Mesa, MovimentoCaixa, Pagamento, RecebimentoPagamento
+from .models import (
+    Caixa,
+    ConfiguracaoPreco,
+    ItemPedidoAvulso,
+    Mesa,
+    MovimentoCaixa,
+    Pagamento,
+    PedidoAvulso,
+    RecebimentoPagamento,
+)
 from .serializers import (
     CaixaSerializer,
     ConfiguracaoPrecoSerializer,
+    ItemPedidoAvulsoSerializer,
     MesaSerializer,
     MovimentoCaixaSerializer,
     PagamentoSerializer,
+    PedidoAvulsoSerializer,
 )
 
 PAPEIS_CAIXA = ("Administrador", "Caixa")
@@ -272,3 +284,111 @@ class PagamentoViewSet(ModelViewSet):
             )
 
         return Response(PagamentoSerializer(pagamento).data, status=status.HTTP_201_CREATED)
+
+
+class PedidoAvulsoViewSet(ModelViewSet):
+    """
+    Pedido avulso de balcão/delivery (RF14/RF15): começa como um carrinho
+    (`aberto`) e só afeta estoque/caixa quando `confirmar` é chamado.
+    """
+
+    queryset = PedidoAvulso.objects.select_related("criado_por", "confirmado_por").prefetch_related(
+        "itens__produto"
+    )
+    serializer_class = PedidoAvulsoSerializer
+    permission_classes = [exige_papel(*PAPEIS_CAIXA)]
+    http_method_names = ["get", "post", "head", "options"]
+
+    def perform_create(self, serializer):
+        pedido = serializer.save(criado_por=self.request.user)
+        registrar_auditoria(self.request.user, "pedido_avulso_criado", f"Pedido avulso #{pedido.pk} ({pedido.tipo}) criado.")
+
+    @action(detail=True, methods=["get"])
+    def texto_whatsapp(self, request, pk=None):
+        pedido = self.get_object()
+        return Response({"texto": pedido.texto_whatsapp()})
+
+    @action(detail=True, methods=["post"])
+    def confirmar(self, request, pk=None):
+        pedido = self.get_object()
+        if pedido.status != PedidoAvulso.ABERTO:
+            return Response({"detail": "Este pedido não está mais aberto."}, status=status.HTTP_400_BAD_REQUEST)
+
+        itens = list(pedido.itens.select_related("produto"))
+        if not itens:
+            raise serializers.ValidationError({"detail": "Adicione ao menos um item antes de confirmar."})
+
+        forma_pagamento = request.data.get("forma_pagamento")
+        formas_validas = {choice[0] for choice in RecebimentoPagamento.FORMA_CHOICES}
+        if forma_pagamento not in formas_validas:
+            raise serializers.ValidationError({"forma_pagamento": "Forma de pagamento inválida."})
+
+        caixa = Caixa.objects.filter(status=Caixa.ABERTO).first()
+        if not caixa:
+            raise serializers.ValidationError({"detail": "Não há caixa aberto para confirmar este pedido."})
+
+        valor_total = pedido.valor_calculado()
+
+        with transaction.atomic():
+            for item in itens:
+                estoque_services.baixar_estoque(
+                    item.produto,
+                    item.quantidade,
+                    request.user,
+                    descricao=f"Pedido avulso #{pedido.pk} ({pedido.get_tipo_display()}).",
+                )
+
+            pedido.status = PedidoAvulso.CONFIRMADO
+            pedido.forma_pagamento = forma_pagamento
+            pedido.valor_total = valor_total
+            pedido.caixa = caixa
+            pedido.confirmado_por = request.user
+            pedido.confirmado_em = timezone.now()
+            pedido.save()
+
+            registrar_auditoria(
+                request.user,
+                "pedido_avulso_confirmado",
+                f"Pedido avulso #{pedido.pk} ({pedido.tipo}) confirmado: R${valor_total} em {forma_pagamento}.",
+            )
+
+        return Response(PedidoAvulsoSerializer(pedido).data)
+
+    @action(detail=True, methods=["post"])
+    def cancelar(self, request, pk=None):
+        pedido = self.get_object()
+        if pedido.status != PedidoAvulso.ABERTO:
+            return Response(
+                {"detail": "Só é possível cancelar um pedido ainda aberto (carrinho)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            pedido.status = PedidoAvulso.CANCELADO
+            pedido.save(update_fields=["status"])
+            registrar_auditoria(request.user, "pedido_avulso_cancelado", f"Pedido avulso #{pedido.pk} cancelado.")
+
+        return Response(PedidoAvulsoSerializer(pedido).data)
+
+
+class ItemPedidoAvulsoViewSet(ModelViewSet):
+    """Itens do carrinho de um `PedidoAvulso` — só podem existir enquanto o pedido está `aberto`."""
+
+    queryset = ItemPedidoAvulso.objects.select_related("pedido", "produto")
+    serializer_class = ItemPedidoAvulsoSerializer
+    permission_classes = [exige_papel(*PAPEIS_CAIXA)]
+    http_method_names = ["get", "post", "delete", "head", "options"]
+
+    def perform_create(self, serializer):
+        pedido = serializer.validated_data["pedido"]
+        produto = serializer.validated_data["produto"]
+        if pedido.status != PedidoAvulso.ABERTO:
+            raise serializers.ValidationError({"pedido": "Este pedido não está mais aberto."})
+        if not produto.ativo:
+            raise serializers.ValidationError({"produto": "Este produto está inativo."})
+        serializer.save(preco_unitario=produto.preco)
+
+    def perform_destroy(self, instance):
+        if instance.pedido.status != PedidoAvulso.ABERTO:
+            raise serializers.ValidationError({"detail": "Este pedido não está mais aberto."})
+        instance.delete()

@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { api } from "../../lib/api";
 import type { Comanda, ItemComandaPrato } from "../../lib/atendimento";
 import type { Mesa } from "../../lib/caixa";
+import type { Produto } from "../../lib/estoque";
 import { temPapel } from "../../lib/auth";
 
 export default function ComandaDetalhePage() {
@@ -17,6 +18,7 @@ export default function ComandaDetalhePage() {
   const [novoItem, setNovoItem] = useState({ quantidade_pratos: "1", quantidade_extras_proteina: "0" });
   const [itemEmEdicao, setItemEmEdicao] = useState<number | null>(null);
   const [edicao, setEdicao] = useState({ quantidade_pratos: "", quantidade_extras_proteina: "" });
+  const [novoItemProduto, setNovoItemProduto] = useState({ produto: "", quantidade: "1" });
   const [mesaDestino, setMesaDestino] = useState("");
   const [mostrarTransferencia, setMostrarTransferencia] = useState(false);
   const [erro, setErro] = useState("");
@@ -29,6 +31,11 @@ export default function ComandaDetalhePage() {
   const { data: mesas } = useQuery({
     queryKey: ["mesas"],
     queryFn: async () => (await api.get<Mesa[]>("/mesas/")).data,
+  });
+
+  const { data: produtos } = useQuery({
+    queryKey: ["produtos"],
+    queryFn: async () => (await api.get<Produto[]>("/produtos/")).data,
   });
 
   function invalidar() {
@@ -68,6 +75,26 @@ export default function ComandaDetalhePage() {
     mutationFn: async (itemId: number) => api.post(`/itens-comanda-prato/${itemId}/cancelar/`),
     onSuccess: () => invalidar(),
     onError: () => setErro("Não foi possível cancelar o item."),
+  });
+
+  const adicionarItemProduto = useMutation({
+    mutationFn: async () =>
+      api.post("/itens-comanda-produto/", {
+        comanda: Number(id),
+        produto: Number(novoItemProduto.produto),
+        quantidade: Number(novoItemProduto.quantidade),
+      }),
+    onSuccess: () => {
+      invalidar();
+      setNovoItemProduto({ produto: "", quantidade: "1" });
+    },
+    onError: () => setErro("Não foi possível lançar o produto."),
+  });
+
+  const cancelarItemProduto = useMutation({
+    mutationFn: async (itemId: number) => api.post(`/itens-comanda-produto/${itemId}/cancelar/`),
+    onSuccess: () => invalidar(),
+    onError: () => setErro("Não foi possível cancelar o produto."),
   });
 
   const transferir = useMutation({
@@ -268,6 +295,74 @@ export default function ComandaDetalhePage() {
             ))}
           </div>
         </div>
+
+        {comandaAberta && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (novoItemProduto.produto) adicionarItemProduto.mutate();
+            }}
+            className="space-y-3 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
+          >
+            <h2 className="text-sm font-semibold text-slate-700">Lançar bebida/sobremesa</h2>
+            <select
+              value={novoItemProduto.produto}
+              onChange={(e) => setNovoItemProduto({ ...novoItemProduto, produto: e.target.value })}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              required
+            >
+              <option value="">Selecione um produto</option>
+              {(produtos ?? [])
+                .filter((p) => p.ativo)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome} — R$ {Number(p.preco).toFixed(2)}
+                  </option>
+                ))}
+            </select>
+            <input
+              type="number"
+              min="1"
+              value={novoItemProduto.quantidade}
+              onChange={(e) => setNovoItemProduto({ ...novoItemProduto, quantidade: e.target.value })}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              required
+            />
+            <button
+              type="submit"
+              disabled={adicionarItemProduto.isPending}
+              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Lançar
+            </button>
+          </form>
+        )}
+
+        {comanda.itens_produto.length > 0 && (
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <h2 className="mb-3 text-sm font-semibold text-slate-700">Bebidas e sobremesas</h2>
+            <div className="divide-y divide-slate-100">
+              {comanda.itens_produto.map((item) => (
+                <div key={item.id} className="flex items-center justify-between py-2 text-sm">
+                  <span className={item.cancelado ? "text-slate-400 line-through" : "text-slate-700"}>
+                    {item.quantidade}x {item.produto_nome}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-500">R$ {item.subtotal.toFixed(2)}</span>
+                    {comandaAberta && !item.cancelado && (
+                      <button
+                        onClick={() => cancelarItemProduto.mutate(item.id)}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        cancelar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {!comandaAberta && (
           <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">

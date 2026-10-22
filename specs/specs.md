@@ -15,7 +15,7 @@
 | 2 | Caixa: base (mesas, config. de preço, abertura/fechamento) | ✅ Concluído |
 | 3 | Atendimento self-service (comandas) | ✅ Concluído |
 | 4 | Finalização de pagamento (cálculo, desconto, split, fiado) | ✅ Concluído |
-| 5 | Produtos, Avulso/Delivery e Estoque | ⬜ Não iniciado |
+| 5 | Produtos, Avulso/Delivery e Estoque | ✅ Concluído |
 | 6 | Clientes / Fiado | ⬜ Não iniciado |
 | 7 | Dashboard e Relatórios | ⬜ Não iniciado |
 | 8 | Hardening e deploy na VPS Hostinger | ⬜ Não iniciado |
@@ -284,15 +284,78 @@ não é possível referenciar `clientes.Cliente` antes desse app existir.
 Quando o Ciclo 6 chegar, a forma mais simples será adicionar um FK opcional
 `cliente` em `Pagamento` (null=True) numa migration nova.
 
-## Próximo ciclo (Ciclo 5 — Produtos, Avulso/Delivery e Estoque)
+## Ciclo 5 — o que foi entregue
 
-Escopo: RF14–RF15, RF20, RF25–RF31. Cadastro de produtos de venda direta
-(bebidas, sobremesas, marmitex, itens de delivery) vinculados 1:1 a um item
-de estoque; lançamento desses produtos na comanda (RF20, finalmente
-possível); pedido avulso (balcão) e delivery com os mesmos produtos,
-endereço opcional e geração de texto para WhatsApp; baixa automática de
-estoque nas vendas desses produtos; itens de estoque gerais do buffet
-(sem baixa automática, só lançamento de entrada e conferência manual); e
-alerta de itens abaixo do mínimo. Maior risco: não confundir produto de
-venda direta (baixa automática) com item de buffet (conferência manual) —
-manter os dois modelos bem separados desde o desenho inicial.
+- Novo app `estoque` ganhou modelos reais: `ItemEstoque` (RF26 — insumo
+  geral do buffet, ou a base de um `Produto`) e `MovimentoEstoque`
+  (RF27-RF29 — ledger de entradas/baixas/ajustes). Igual ao padrão já
+  usado para o saldo do caixa (Ciclo 2), não existe um campo de
+  "quantidade atual" guardado — `ItemEstoque.quantidade_atual()` soma os
+  movimentos, para nunca dessincronizar. `Produto` (RF25) é 1:1 com um
+  `ItemEstoque` — vender 1 unidade do produto baixa 1 unidade do estoque.
+- `estoque/services.py`: funções únicas para criar movimentos
+  (`lancar_entrada`, `lancar_ajuste`, `baixar_estoque`,
+  `reverter_baixa_estoque`), usadas também pelos apps `atendimento` e
+  `caixa` — mesmo princípio do `contas.auditoria.registrar_auditoria`. O
+  endpoint de movimentos (`/api/movimentos-estoque/`) só aceita `entrada`
+  e `ajuste` manualmente; `baixa_automatica` só é criada internamente, para
+  não poder ser forjada.
+- RF20 finalmente possível: `atendimento.ItemComandaProduto` (comanda +
+  produto + quantidade, com `preco_unitario` travado no momento do
+  lançamento). A baixa de estoque acontece no instante do lançamento (não
+  no fechamento da comanda) e é revertida automaticamente se o item for
+  cancelado antes do fechamento. `Comanda.valor_parcial_estimado()` agora
+  soma pratos **e** produtos lançados.
+- RF14/RF15: `caixa.PedidoAvulso` + `ItemPedidoAvulso` (balcão/delivery).
+  Começa como um "carrinho" (`aberto`) — itens podem ser adicionados ou
+  removidos livremente, sem afetar estoque/caixa ainda. Ao `confirmar`
+  (escolhendo a forma de pagamento), baixa o estoque de cada item, vira um
+  registro definitivo (sem mais edição, mesmo padrão do `Pagamento`) e, se
+  pago em dinheiro, soma ao saldo esperado do caixa aberto no momento.
+  `texto_whatsapp` monta a mensagem (itens, valores, endereço se
+  delivery) para o caixa copiar e enviar manualmente — sem impressão, como
+  decidido desde o plano original.
+- `Caixa.calcular_valor_esperado()` ganhou um terceiro componente (além de
+  suprimento/sangria e pagamento de comanda em dinheiro): o total de
+  pedidos avulsos/delivery confirmados pagos em dinheiro.
+- RBAC: o papel **Estoquista** (já existia desde o Ciclo 1, mas sem uso) 
+  passou a valer — Administrador/Caixa/Estoquista administram produtos e
+  itens de estoque; a leitura de produtos também é liberada ao Atendente
+  (precisa escolher bebida/sobremesa na comanda); avulso/delivery continua
+  restrito a Administrador/Caixa, como o resto do módulo Caixa.
+- Frontend: páginas `Produtos` (cadastro cria o `ItemEstoque` junto, numa
+  única tela) e `Itens de estoque` (itens de buffet, lançar entrada/ajuste,
+  alerta visual de item abaixo do mínimo — RF30), ambas em
+  `/estoque/...`; páginas `Avulso/Delivery` (lista + detalhe com
+  carrinho, confirmação por forma de pagamento e texto WhatsApp copiável)
+  em `/caixa/avulso...`; a tela de comanda ganhou o lançamento de
+  bebidas/sobremesas ao lado do lançamento de pratos.
+- Testado manualmente via API: cadastro de produto cria o item de estoque
+  correspondente; entrada de estoque; bloqueio de lançar
+  `baixa_automatica` manualmente; venda de bebida na comanda baixa o
+  estoque e entra no valor parcial da comanda; cancelamento do item
+  reverte o estoque; pedido avulso delivery (texto WhatsApp correto,
+  confirmação soma ao saldo do caixa, bloqueio de editar depois de
+  confirmado); item de buffet sem produto vinculado, com ajuste de
+  conferência negativo; alerta de estoque baixo (RF30). Verificação de
+  tipos do frontend (`tsc -b`) sem erros.
+
+**Ajustes em relação ao plano original**: diferente do pagamento de
+comanda, avulso/delivery não tem desconto nem split — é uma venda de
+balcão com uma forma de pagamento só (decisão explícita, para não
+complicar um fluxo que no negócio real é simples). Cancelar um pedido
+avulso só é possível enquanto ele ainda está "aberto" (carrinho) —
+cancelar um pedido já confirmado (que já baixou estoque e já entrou no
+caixa) ficou fora do escopo deste ciclo.
+
+## Próximo ciclo (Ciclo 6 — Clientes / Fiado)
+
+Escopo: RF16, RF32–RF35. Cadastro de clientes; conta corrente (cada
+consumo vinculado a um cliente gera um lançamento de débito); fechamento
+mensal da conta; histórico/extrato por cliente. RF16 (vincular pagamento
+de mesa, avulso ou delivery a um cliente fiado) finalmente possível —
+precisa de um FK opcional `cliente` em `caixa.Pagamento` e em
+`caixa.PedidoAvulso` (novas migrations, sem quebrar os registros já
+existentes, que continuam com `cliente=None`). Risco baixo — depende
+só dos Ciclos 4 e 5 já estarem gerando lançamentos corretamente, o que foi
+confirmado nos testes manuais de ambos.
