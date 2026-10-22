@@ -18,4 +18,5 @@ urlpatterns = [
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/auth/me/", EuView.as_view(), name="auth_me"),
     path("api/", include("contas.urls")),
+    path("api/", include("caixa.urls")),
 ]

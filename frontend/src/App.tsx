@@ -5,6 +5,9 @@ import { AuthProvider } from "./context/AuthContext";
 import AdminUsuarios from "./pages/AdminUsuarios";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import CaixaPage from "./pages/caixa/CaixaPage";
+import ConfiguracaoPrecoPage from "./pages/caixa/ConfiguracaoPrecoPage";
+import MesasPage from "./pages/caixa/MesasPage";
 
 export default function App() {
   return (
@@ -18,6 +21,12 @@ export default function App() {
 
         <Route element={<RotaProtegida papeis={["Administrador"]} />}>
           <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+        </Route>
+
+        <Route element={<RotaProtegida papeis={["Administrador", "Caixa"]} />}>
+          <Route path="/caixa" element={<CaixaPage />} />
+          <Route path="/caixa/mesas" element={<MesasPage />} />
+          <Route path="/caixa/configuracao-preco" element={<ConfiguracaoPrecoPage />} />
         </Route>
       </Routes>
     </AuthProvider>

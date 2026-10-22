@@ -12,7 +12,7 @@
 |---|---|---|
 | 0 | Fundação técnica + estrutura agêntica + GitHub | ✅ Concluído |
 | 1 | Autenticação e Administração | ✅ Concluído |
-| 2 | Caixa: base (mesas, config. de preço, abertura/fechamento) | ⬜ Não iniciado |
+| 2 | Caixa: base (mesas, config. de preço, abertura/fechamento) | ✅ Concluído |
 | 3 | Atendimento self-service (comandas) | ⬜ Não iniciado |
 | 4 | Finalização de pagamento (cálculo, desconto, split, fiado) | ⬜ Não iniciado |
 | 5 | Produtos, Avulso/Delivery e Estoque | ⬜ Não iniciado |
@@ -175,8 +175,41 @@
   (`tsc -b`) sem erros. **Não testado em navegador real** — pendente de
   confirmação visual pelo usuário.
 
-## Próximo ciclo (Ciclo 2 — Caixa: base)
+## Ciclo 2 — o que foi entregue
 
-Escopo: RF06–RF10. Cadastro de mesas, configuração de preços (prato
-simples + unidade extra de proteína), abertura/fechamento de caixa,
-sangria/suprimento.
+- Modelos no app `caixa`: `Mesa`, `ConfiguracaoPreco` (sempre lida via
+  `ConfiguracaoPreco.atual()`, que pega a mais recente ou cria uma
+  zerada), `Caixa` e `MovimentoCaixa` (sangria/suprimento).
+- `Caixa.calcular_valor_esperado()` soma abertura + suprimentos - sangrias
+  (consulta agregada no banco); vai crescer no Ciclo 4 para incluir
+  pagamentos de comanda.
+- Endpoints: `/api/mesas/` (CRUD; leitura liberada também para Atendente,
+  escrita só Administrador/Caixa), `/api/configuracao-preco/` (GET/PUT),
+  `/api/caixas/` com ações `abrir`, `fechar` e `atual`, e
+  `/api/movimentos-caixa/` (sempre vinculado ao caixa aberto no momento;
+  erro claro se não houver caixa aberto).
+- Todas as ações sensíveis (abrir/fechar caixa, sangria/suprimento,
+  alterar configuração de preço) geram `LogAuditoria`.
+- Frontend: páginas `Caixa` (abrir/fechar, lançar sangria/suprimento, ver
+  saldo e histórico de movimentos), `Mesas` (criar mesa, alternar
+  livre/ocupada tocando no card) e `Configuração de preço`, todas
+  acessíveis pelo menu da Home para papéis Administrador/Caixa.
+- Testado manualmente via API (abrir caixa, suprimento, sangria, saldo
+  calculado corretamente, fechamento com valor esperado x informado) e
+  verificação de tipos do frontend sem erros. Existem dados de teste no
+  ambiente local (mesa 1, um caixa já fechado, configuração de preço
+  R$25/R$8) — é só dados de desenvolvimento, sem problema em apagar.
+
+## Próximo ciclo (Ciclo 3 — Atendimento self-service)
+
+Escopo: RF18, RF19, RF21–RF24. Alocar cliente à mesa (abrir comanda),
+lançar quantidade de pratos + extras de proteína, editar/cancelar item,
+transferir comanda entre mesas, consultar status, fechar comanda (sem
+calcular pagamento ainda — isso é o Ciclo 4).
+
+**Ajuste de ordem em relação ao plano original**: RF20 (bebidas/
+sobremesas na comanda) depende de `Produto` existir, e `Produto` só é
+criado no Ciclo 5 (Estoque/Produtos). Em vez de criar uma solução
+provisória em texto livre que seria jogada fora depois, RF20 fica para
+ser implementado junto do Ciclo 5, quando `Produto` já existir de
+verdade — evita retrabalho.

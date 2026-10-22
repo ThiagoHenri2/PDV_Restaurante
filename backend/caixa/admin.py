@@ -1,3 +1,18 @@
-from django.contrib import admin  # noqa: F401
+from django.contrib import admin
 
-# Registros de admin deste app virão junto com os modelos, nos Ciclos 2 e 4.
+from .models import Caixa, ConfiguracaoPreco, Mesa, MovimentoCaixa
+
+admin.site.register(Mesa)
+admin.site.register(ConfiguracaoPreco)
+
+
+@admin.register(Caixa)
+class CaixaAdmin(admin.ModelAdmin):
+    list_display = ["id", "status", "valor_abertura", "aberto_por", "aberto_em", "fechado_em"]
+    list_filter = ["status"]
+
+
+@admin.register(MovimentoCaixa)
+class MovimentoCaixaAdmin(admin.ModelAdmin):
+    list_display = ["id", "caixa", "tipo", "valor", "usuario", "criado_em"]
+    list_filter = ["tipo"]

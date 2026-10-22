@@ -30,14 +30,39 @@ export default function Home() {
               : "nenhum"}
         </p>
 
-        {temPapel(usuario, "Administrador") && (
-          <Link
-            to="/admin/usuarios"
-            className="mt-6 block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Administração de usuários →
-          </Link>
-        )}
+        <div className="mt-6 space-y-2">
+          {temPapel(usuario, "Administrador", "Caixa") && (
+            <>
+              <Link
+                to="/caixa"
+                className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Caixa →
+              </Link>
+              <Link
+                to="/caixa/mesas"
+                className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Mesas →
+              </Link>
+              <Link
+                to="/caixa/configuracao-preco"
+                className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Configuração de preço →
+              </Link>
+            </>
+          )}
+
+          {temPapel(usuario, "Administrador") && (
+            <Link
+              to="/admin/usuarios"
+              className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Administração de usuários →
+            </Link>
+          )}
+        </div>
       </div>
     </main>
   );

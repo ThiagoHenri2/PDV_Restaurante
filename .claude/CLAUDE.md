@@ -97,10 +97,23 @@ docker compose exec frontend npm test
 - API em desenvolvimento: http://localhost:8000/api/
 - Django Admin: http://localhost:8000/admin/
 
+## Fluxo entre ciclos
+
+Assim que o usuário confirmar que um ciclo está funcionando (testado por
+ele, não só por mim), antes de começar a implementação do próximo ciclo:
+atualizar o status em `specs/specs.md` e o "Estado atual" abaixo, comitar/
+enviar ao GitHub, e então **pedir explicitamente ao usuário para rodar
+`/compact` (ou `/clear`)** antes de eu seguir para o próximo ciclo — o
+estado do projeto vive nestes arquivos (`specs/specs.md` e este
+`CLAUDE.md`), não na conversa, então compactar entre ciclos não perde
+contexto relevante.
+
 ## Estado atual
 
-Ciclos 0 e 1 concluídos: esqueleto do backend/frontend rodando via Docker
-Compose, autenticação JWT, papéis (Administrador/Caixa/Atendente/
-Estoquista) via `django.contrib.auth.models.Group`, CRUD de usuários e log
-de auditoria. Próximo: Ciclo 2 (Caixa: mesas, configuração de preço,
-abertura/fechamento) — ver `specs/specs.md`.
+Ciclos 0, 1 e 2 concluídos: esqueleto do backend/frontend, autenticação
+JWT e papéis, e agora o módulo Caixa (mesas, configuração de preço,
+abertura/fechamento de caixa, sangria/suprimento) funcionando de ponta a
+ponta. Próximo: Ciclo 3 (Atendimento self-service — comandas, pratos e
+extras de proteína). Nota: RF20 (bebidas/sobremesas na comanda) foi
+adiado para o Ciclo 5, porque depende do modelo `Produto` que só existe
+lá — ver `specs/specs.md`.
