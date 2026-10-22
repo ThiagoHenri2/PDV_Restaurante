@@ -130,12 +130,15 @@ contexto relevante.
 
 ## Estado atual
 
-Ciclos 0, 1, 2 e 3 concluídos: esqueleto do backend/frontend, autenticação
-JWT e papéis, módulo Caixa (mesas, configuração de preço, abertura/
-fechamento de caixa, sangria/suprimento) e agora o módulo Atendimento
-(abrir comanda numa mesa, lançar/editar/cancelar pratos + extras de
-proteína, transferir comanda entre mesas, fechar comanda) funcionando de
-ponta a ponta. Próximo: Ciclo 4 (Finalização de pagamento — cálculo final,
-desconto, split, vínculo com fiado). Nota: RF20 (bebidas/sobremesas na
-comanda) continua adiado para o Ciclo 5, porque depende do modelo
-`Produto` que só existe lá — ver `specs/specs.md`.
+Ciclos 0 a 4 concluídos: esqueleto do backend/frontend, autenticação JWT e
+papéis, módulo Caixa (mesas, configuração de preço, abertura/fechamento de
+caixa, sangria/suprimento), módulo Atendimento (abrir comanda, lançar/
+editar/cancelar pratos + extras de proteína, transferir comanda, fechar
+comanda) e agora a finalização de pagamento (`caixa.Pagamento` +
+`RecebimentoPagamento`: cálculo a partir do valor parcial da comanda,
+desconto fixo/percentual, múltiplas formas de pagamento/split, saldo do
+caixa somando só o dinheiro recebido) funcionando de ponta a ponta.
+Próximo: Ciclo 5 (Produtos, Avulso/Delivery e Estoque). Notas de escopo
+adiado (ver `specs/specs.md`): RF20 (bebidas/sobremesas na comanda) vai
+para o Ciclo 5, quando `Produto` existir; RF16 (vincular pagamento a
+cliente fiado) vai para o Ciclo 6, quando `Cliente` existir.

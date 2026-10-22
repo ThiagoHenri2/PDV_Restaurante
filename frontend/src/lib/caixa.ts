@@ -35,3 +35,28 @@ export interface Caixa {
   saldo_atual: number;
   movimentos: MovimentoCaixa[];
 }
+
+export type FormaPagamento = "dinheiro" | "debito" | "credito" | "pix";
+export type TipoDesconto = "nenhum" | "fixo" | "percentual";
+
+export interface RecebimentoPagamento {
+  id: number;
+  forma: FormaPagamento;
+  valor: string;
+  descricao: string;
+}
+
+export interface Pagamento {
+  id: number;
+  comanda: number;
+  comanda_mesa_numero: number;
+  caixa: number;
+  valor_bruto: string;
+  tipo_desconto: TipoDesconto;
+  valor_desconto: string;
+  valor_desconto_aplicado: string;
+  valor_final: string;
+  registrado_por_username: string | null;
+  registrado_em: string;
+  recebimentos: RecebimentoPagamento[];
+}

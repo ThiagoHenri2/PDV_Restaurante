@@ -10,6 +10,7 @@ import ComandasPage from "./pages/atendimento/ComandasPage";
 import CaixaPage from "./pages/caixa/CaixaPage";
 import ConfiguracaoPrecoPage from "./pages/caixa/ConfiguracaoPrecoPage";
 import MesasPage from "./pages/caixa/MesasPage";
+import PagamentoPage from "./pages/caixa/PagamentoPage";
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/caixa" element={<CaixaPage />} />
           <Route path="/caixa/mesas" element={<MesasPage />} />
           <Route path="/caixa/configuracao-preco" element={<ConfiguracaoPrecoPage />} />
+          <Route path="/caixa/comandas/:comandaId/pagamento" element={<PagamentoPage />} />
         </Route>
 
         <Route element={<RotaProtegida papeis={["Administrador", "Caixa", "Atendente"]} />}>

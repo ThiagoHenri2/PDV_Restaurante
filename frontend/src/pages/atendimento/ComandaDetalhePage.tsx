@@ -2,14 +2,17 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { useAuth } from "../../context/AuthContext";
 import { api } from "../../lib/api";
 import type { Comanda, ItemComandaPrato } from "../../lib/atendimento";
 import type { Mesa } from "../../lib/caixa";
+import { temPapel } from "../../lib/auth";
 
 export default function ComandaDetalhePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { usuario } = useAuth();
 
   const [novoItem, setNovoItem] = useState({ quantidade_pratos: "1", quantidade_extras_proteina: "0" });
   const [itemEmEdicao, setItemEmEdicao] = useState<number | null>(null);
@@ -265,6 +268,43 @@ export default function ComandaDetalhePage() {
             ))}
           </div>
         </div>
+
+        {!comandaAberta && (
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            {comanda.pago && comanda.pagamento ? (
+              <>
+                <h2 className="mb-2 text-sm font-semibold text-emerald-700">Pagamento concluído</h2>
+                <p className="text-sm text-slate-600">
+                  Valor bruto: R$ {Number(comanda.pagamento.valor_bruto).toFixed(2)}
+                  {comanda.pagamento.tipo_desconto !== "nenhum" &&
+                    ` · desconto: R$ ${Number(comanda.pagamento.valor_desconto_aplicado).toFixed(2)}`}
+                </p>
+                <p className="text-lg font-semibold text-slate-900">
+                  Valor pago: R$ {Number(comanda.pagamento.valor_final).toFixed(2)}
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="mb-2 text-sm font-semibold text-amber-700">Aguardando pagamento</h2>
+                <p className="text-sm text-slate-600">
+                  Valor a pagar: R$ {comanda.valor_parcial_estimado.toFixed(2)}
+                </p>
+                {temPapel(usuario, "Administrador", "Caixa") ? (
+                  <Link
+                    to={`/caixa/comandas/${comanda.id}/pagamento`}
+                    className="mt-3 block w-full rounded-lg bg-slate-900 px-4 py-2 text-center text-sm font-medium text-white"
+                  >
+                    Finalizar pagamento
+                  </Link>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-400">
+                    Só Administrador/Caixa pode finalizar o pagamento.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {comandaAberta && (
           <div className="space-y-3">

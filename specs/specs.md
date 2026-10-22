@@ -14,7 +14,7 @@
 | 1 | Autenticação e Administração | ✅ Concluído |
 | 2 | Caixa: base (mesas, config. de preço, abertura/fechamento) | ✅ Concluído |
 | 3 | Atendimento self-service (comandas) | ✅ Concluído |
-| 4 | Finalização de pagamento (cálculo, desconto, split, fiado) | ⬜ Não iniciado |
+| 4 | Finalização de pagamento (cálculo, desconto, split, fiado) | ✅ Concluído |
 | 5 | Produtos, Avulso/Delivery e Estoque | ⬜ Não iniciado |
 | 6 | Clientes / Fiado | ⬜ Não iniciado |
 | 7 | Dashboard e Relatórios | ⬜ Não iniciado |
@@ -235,12 +235,64 @@
 sobremesas na comanda) continua adiado para o Ciclo 5, quando `Produto`
 existir de verdade.
 
-## Próximo ciclo (Ciclo 4 — Finalização de pagamento)
+## Ciclo 4 — o que foi entregue
 
-Escopo: RF11–RF13, RF16. Calcular o valor final da comanda (pratos +
-extras, usando `Comanda.valor_parcial_estimado()` como base), aplicar
-desconto (fixo ou percentual), suportar múltiplas formas de pagamento e
-split entre pessoas, e permitir vincular o pagamento a um cliente fiado —
-este último ponto fica como um FK opcional "preparado" para o Ciclo 6
-(`clientes`), já que o modelo `Cliente` ainda não existe; se necessário,
-seguimos o mesmo padrão de adiamento usado para RF20.
+- Modelos novos no app `caixa`: `Pagamento` (N:1 `Caixa`, 1:1 `Comanda` do
+  app `atendimento` — referenciada por string para não criar import
+  circular) e `RecebimentoPagamento` (N:1 `Pagamento`; cada linha é uma
+  forma de pagamento com seu valor, o que cobre tanto "múltiplas formas de
+  pagamento" quanto o split entre pessoas da mesa).
+- Cálculo do pagamento: `valor_bruto` vem de
+  `Comanda.valor_parcial_estimado()` (travado, pois a comanda precisa estar
+  `fechada` e não aceita mais itens); desconto fixo (R$) ou percentual
+  (0–100%) gera `valor_desconto_aplicado`; `valor_final = valor_bruto -
+  valor_desconto_aplicado`. A soma dos `RecebimentoPagamento` precisa ser
+  exatamente igual ao `valor_final` (validado na criação).
+- Regras: só é possível pagar uma comanda `fechada` e que ainda não tenha
+  pagamento (1:1); precisa existir um caixa aberto no momento (o pagamento
+  fica vinculado a ele); não há edição/exclusão de pagamento (registro
+  financeiro definitivo, RNF06).
+- `Caixa.calcular_valor_esperado()` passou a somar também os recebimentos
+  em **dinheiro** vinculados ao caixa (débito/crédito/PIX não entram no
+  valor físico esperado na gaveta — só impactam o faturamento, que é
+  assunto do Ciclo 7).
+- Endpoint: `POST/GET /api/pagamentos/` (sem PATCH/DELETE). Acesso restrito
+  a Administrador/Caixa (o Atendente fecha a comanda, mas não finaliza
+  pagamento). Toda finalização gera `LogAuditoria` com o valor bruto,
+  desconto e valor final.
+- `ComandaSerializer` passou a expor `pago` e um resumo de `pagamento`
+  (quando existir), para a tela de atendimento saber se uma comanda fechada
+  já foi paga ou está aguardando.
+- Frontend: nova página `Pagamento` (`/caixa/comandas/:id/pagamento`,
+  acessível só a Administrador/Caixa) — mostra o valor bruto, permite
+  escolher o tipo de desconto, adicionar/remover linhas de forma de
+  pagamento (split) e confere em tempo real se a soma bate com o valor
+  final antes de liberar o botão. A página de detalhe da comanda agora
+  mostra "Aguardando pagamento" (com link para finalizar, se o usuário tiver
+  o papel certo) ou o resumo do pagamento já concluído.
+- Testado manualmente via API: desconto fixo com split em duas formas
+  (dinheiro + PIX), desconto percentual com uma forma (crédito), bloqueio
+  de pagar a mesma comanda duas vezes, bloqueio de pagar comanda ainda
+  aberta, e o saldo do caixa somando corretamente só o valor recebido em
+  dinheiro. Verificação de tipos do frontend (`tsc -b`) sem erros.
+
+**Ajuste em relação ao plano original**: RF16 (vincular pagamento a cliente
+fiado) foi adiado para o Ciclo 6, mesmo padrão usado para o RF20 — não foi
+criado nem um FK "preparado" no modelo `Pagamento`, porque o Django valida a
+existência do modelo referenciado mesmo numa FK declarada por string, então
+não é possível referenciar `clientes.Cliente` antes desse app existir.
+Quando o Ciclo 6 chegar, a forma mais simples será adicionar um FK opcional
+`cliente` em `Pagamento` (null=True) numa migration nova.
+
+## Próximo ciclo (Ciclo 5 — Produtos, Avulso/Delivery e Estoque)
+
+Escopo: RF14–RF15, RF20, RF25–RF31. Cadastro de produtos de venda direta
+(bebidas, sobremesas, marmitex, itens de delivery) vinculados 1:1 a um item
+de estoque; lançamento desses produtos na comanda (RF20, finalmente
+possível); pedido avulso (balcão) e delivery com os mesmos produtos,
+endereço opcional e geração de texto para WhatsApp; baixa automática de
+estoque nas vendas desses produtos; itens de estoque gerais do buffet
+(sem baixa automática, só lançamento de entrada e conferência manual); e
+alerta de itens abaixo do mínimo. Maior risco: não confundir produto de
+venda direta (baixa automática) com item de buffet (conferência manual) —
+manter os dois modelos bem separados desde o desenho inicial.

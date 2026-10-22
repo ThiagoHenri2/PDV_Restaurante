@@ -43,6 +43,8 @@ class ComandaSerializer(serializers.ModelSerializer):
     )
     itens_prato = ItemComandaPratoSerializer(many=True, read_only=True)
     valor_parcial_estimado = serializers.SerializerMethodField()
+    pago = serializers.SerializerMethodField()
+    pagamento = serializers.SerializerMethodField()
 
     class Meta:
         model = Comanda
@@ -58,6 +60,8 @@ class ComandaSerializer(serializers.ModelSerializer):
             "fechada_em",
             "itens_prato",
             "valor_parcial_estimado",
+            "pago",
+            "pagamento",
         ]
         read_only_fields = [
             "status",
@@ -69,3 +73,19 @@ class ComandaSerializer(serializers.ModelSerializer):
 
     def get_valor_parcial_estimado(self, obj):
         return obj.valor_parcial_estimado()
+
+    def get_pago(self, obj):
+        return hasattr(obj, "pagamento")
+
+    def get_pagamento(self, obj):
+        pagamento = getattr(obj, "pagamento", None)
+        if not pagamento:
+            return None
+        return {
+            "id": pagamento.id,
+            "valor_bruto": str(pagamento.valor_bruto),
+            "tipo_desconto": pagamento.tipo_desconto,
+            "valor_desconto_aplicado": str(pagamento.valor_desconto_aplicado),
+            "valor_final": str(pagamento.valor_final),
+            "registrado_em": pagamento.registrado_em,
+        }

@@ -18,9 +18,9 @@ PAPEIS_ATENDIMENTO = ("Administrador", "Caixa", "Atendente")
 class ComandaViewSet(ModelViewSet):
     """Abrir mesa (RF18), transferir (RF22), consultar e fechar (RF23/RF24)."""
 
-    queryset = Comanda.objects.select_related("mesa", "aberta_por", "fechada_por").prefetch_related(
-        "itens_prato"
-    )
+    queryset = Comanda.objects.select_related(
+        "mesa", "aberta_por", "fechada_por", "pagamento"
+    ).prefetch_related("itens_prato")
     serializer_class = ComandaSerializer
     permission_classes = [exige_papel(*PAPEIS_ATENDIMENTO)]
     http_method_names = ["get", "post", "head", "options"]

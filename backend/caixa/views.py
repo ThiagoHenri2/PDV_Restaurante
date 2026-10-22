@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers, status
@@ -6,15 +8,17 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
+from atendimento.models import Comanda
 from contas.auditoria import registrar_auditoria
 from contas.permissions import exige_papel
 
-from .models import Caixa, ConfiguracaoPreco, Mesa, MovimentoCaixa
+from .models import Caixa, ConfiguracaoPreco, Mesa, MovimentoCaixa, Pagamento, RecebimentoPagamento
 from .serializers import (
     CaixaSerializer,
     ConfiguracaoPrecoSerializer,
     MesaSerializer,
     MovimentoCaixaSerializer,
+    PagamentoSerializer,
 )
 
 PAPEIS_CAIXA = ("Administrador", "Caixa")
@@ -144,3 +148,127 @@ class MovimentoCaixaViewSet(ModelViewSet):
             f"caixa_{movimento.tipo}",
             f"{movimento.get_tipo_display()} de R${movimento.valor} no caixa #{caixa.pk}.",
         )
+
+
+class PagamentoViewSet(ModelViewSet):
+    """
+    Finalização de pagamento de comanda (RF11-RF13): calcula o valor final,
+    aplica desconto e registra o(s) recebimento(s). Não existe edição ou
+    exclusão de pagamento — é um registro financeiro definitivo (RNF06).
+    """
+
+    queryset = Pagamento.objects.select_related("comanda__mesa", "registrado_por").prefetch_related(
+        "recebimentos"
+    )
+    serializer_class = PagamentoSerializer
+    permission_classes = [exige_papel(*PAPEIS_CAIXA)]
+    http_method_names = ["get", "post", "head", "options"]
+
+    def create(self, request, *args, **kwargs):
+        comanda_id = request.data.get("comanda")
+        if not comanda_id:
+            raise serializers.ValidationError({"comanda": "Obrigatório."})
+        try:
+            comanda = Comanda.objects.select_related("mesa").get(pk=comanda_id)
+        except Comanda.DoesNotExist:
+            raise serializers.ValidationError({"comanda": "Comanda não encontrada."})
+
+        if comanda.status != Comanda.FECHADA:
+            raise serializers.ValidationError(
+                {"comanda": "A comanda precisa estar fechada antes do pagamento."}
+            )
+        if Pagamento.objects.filter(comanda=comanda).exists():
+            raise serializers.ValidationError({"comanda": "Esta comanda já foi paga."})
+
+        caixa = Caixa.objects.filter(status=Caixa.ABERTO).first()
+        if not caixa:
+            raise serializers.ValidationError(
+                {"detail": "Não há caixa aberto para registrar este pagamento."}
+            )
+
+        tipo_desconto = request.data.get("tipo_desconto", Pagamento.NENHUM)
+        valor_bruto = comanda.valor_parcial_estimado()
+
+        try:
+            valor_desconto = Decimal(str(request.data.get("valor_desconto") or 0))
+        except Exception:
+            raise serializers.ValidationError({"valor_desconto": "Valor inválido."})
+
+        if tipo_desconto == Pagamento.FIXO:
+            if valor_desconto < 0 or valor_desconto > valor_bruto:
+                raise serializers.ValidationError(
+                    {"valor_desconto": "Desconto fixo inválido para o valor da comanda."}
+                )
+            valor_desconto_aplicado = valor_desconto
+        elif tipo_desconto == Pagamento.PERCENTUAL:
+            if valor_desconto < 0 or valor_desconto > 100:
+                raise serializers.ValidationError(
+                    {"valor_desconto": "Percentual deve estar entre 0 e 100."}
+                )
+            valor_desconto_aplicado = (valor_bruto * valor_desconto / Decimal("100")).quantize(
+                Decimal("0.01")
+            )
+        else:
+            tipo_desconto = Pagamento.NENHUM
+            valor_desconto = Decimal("0")
+            valor_desconto_aplicado = Decimal("0")
+
+        valor_final = valor_bruto - valor_desconto_aplicado
+
+        recebimentos_data = request.data.get("recebimentos") or []
+        if not recebimentos_data:
+            raise serializers.ValidationError({"recebimentos": "Informe ao menos uma forma de pagamento."})
+
+        formas_validas = {choice[0] for choice in RecebimentoPagamento.FORMA_CHOICES}
+        total_recebido = Decimal("0")
+        recebimentos_limpos = []
+        for item in recebimentos_data:
+            forma = item.get("forma")
+            if forma not in formas_validas:
+                raise serializers.ValidationError({"recebimentos": f"Forma de pagamento inválida: {forma}."})
+            try:
+                valor = Decimal(str(item.get("valor") or 0))
+            except Exception:
+                raise serializers.ValidationError({"recebimentos": "Valor inválido numa forma de pagamento."})
+            if valor <= 0:
+                raise serializers.ValidationError(
+                    {"recebimentos": "Cada forma de pagamento precisa ter valor maior que zero."}
+                )
+            total_recebido += valor
+            recebimentos_limpos.append(
+                {"forma": forma, "valor": valor, "descricao": item.get("descricao", "")}
+            )
+
+        if total_recebido != valor_final:
+            raise serializers.ValidationError(
+                {
+                    "recebimentos": (
+                        f"A soma das formas de pagamento (R${total_recebido}) precisa ser "
+                        f"igual ao valor final (R${valor_final})."
+                    )
+                }
+            )
+
+        with transaction.atomic():
+            pagamento = Pagamento.objects.create(
+                comanda=comanda,
+                caixa=caixa,
+                valor_bruto=valor_bruto,
+                tipo_desconto=tipo_desconto,
+                valor_desconto=valor_desconto,
+                valor_desconto_aplicado=valor_desconto_aplicado,
+                valor_final=valor_final,
+                registrado_por=request.user,
+            )
+            for recebimento in recebimentos_limpos:
+                RecebimentoPagamento.objects.create(pagamento=pagamento, **recebimento)
+
+            registrar_auditoria(
+                request.user,
+                "comanda_pagamento_finalizado",
+                f"Pagamento da comanda #{comanda.pk} (mesa {comanda.mesa.numero}): "
+                f"bruto R${valor_bruto}, desconto R${valor_desconto_aplicado} "
+                f"({pagamento.get_tipo_desconto_display()}), final R${valor_final}.",
+            )
+
+        return Response(PagamentoSerializer(pagamento).data, status=status.HTTP_201_CREATED)

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Caixa, ConfiguracaoPreco, Mesa, MovimentoCaixa
+from .models import Caixa, ConfiguracaoPreco, Mesa, MovimentoCaixa, Pagamento, RecebimentoPagamento
 
 
 class MesaSerializer(serializers.ModelSerializer):
@@ -61,3 +61,34 @@ class CaixaSerializer(serializers.ModelSerializer):
 
     def get_saldo_atual(self, obj):
         return obj.calcular_valor_esperado()
+
+
+class RecebimentoPagamentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecebimentoPagamento
+        fields = ["id", "forma", "valor", "descricao"]
+
+
+class PagamentoSerializer(serializers.ModelSerializer):
+    comanda_mesa_numero = serializers.IntegerField(source="comanda.mesa.numero", read_only=True)
+    registrado_por_username = serializers.CharField(
+        source="registrado_por.username", read_only=True, default=None
+    )
+    recebimentos = RecebimentoPagamentoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Pagamento
+        fields = [
+            "id",
+            "comanda",
+            "comanda_mesa_numero",
+            "caixa",
+            "valor_bruto",
+            "tipo_desconto",
+            "valor_desconto",
+            "valor_desconto_aplicado",
+            "valor_final",
+            "registrado_por_username",
+            "registrado_em",
+            "recebimentos",
+        ]
