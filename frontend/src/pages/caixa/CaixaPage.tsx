@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { api } from "../../lib/api";
+import type { Comanda } from "../../lib/atendimento";
 import type { Caixa } from "../../lib/caixa";
 
 export default function CaixaPage() {
@@ -23,6 +24,16 @@ export default function CaixaPage() {
       }
     },
   });
+
+  const { data: comandas } = useQuery({
+    queryKey: ["comandas"],
+    queryFn: async () => (await api.get<Comanda[]>("/comandas/")).data,
+    enabled: !!caixa,
+  });
+
+  const comandasAguardandoPagamento = (comandas ?? []).filter(
+    (c) => c.status === "fechada" && !c.pago,
+  );
 
   function invalidar() {
     queryClient.invalidateQueries({ queryKey: ["caixa-atual"] });
@@ -123,6 +134,35 @@ export default function CaixaPage() {
               <p className="mt-2 text-2xl font-semibold text-slate-900">
                 Saldo atual: R$ {caixa.saldo_atual.toFixed(2)}
               </p>
+            </div>
+
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              <h2 className="mb-3 text-sm font-semibold text-slate-700">
+                Comandas aguardando pagamento
+              </h2>
+              <div className="divide-y divide-slate-100">
+                {comandasAguardandoPagamento.length === 0 && (
+                  <p className="text-sm text-slate-400">Nenhuma comanda fechada sem pagamento.</p>
+                )}
+                {comandasAguardandoPagamento.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between py-2 text-sm">
+                    <span>
+                      Mesa {c.mesa_numero} — comanda #{c.id}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-slate-500">
+                        R$ {c.valor_parcial_estimado.toFixed(2)}
+                      </span>
+                      <Link
+                        to={`/caixa/comandas/${c.id}/pagamento`}
+                        className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
+                      >
+                        Finalizar pagamento
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <form
