@@ -130,16 +130,24 @@ contexto relevante.
 
 ## Estado atual
 
-Ciclos 0 a 5 concluídos: esqueleto do backend/frontend, autenticação JWT e
+Ciclos 0 a 6 concluídos: esqueleto do backend/frontend, autenticação JWT e
 papéis, módulo Caixa (mesas, configuração de preço, abertura/fechamento de
 caixa, sangria/suprimento, pagamento de comanda com desconto/split),
 módulo Atendimento (abrir comanda, lançar/editar/cancelar pratos + extras
 de proteína, lançar/cancelar bebidas e sobremesas, transferir e fechar
-comanda) e agora o módulo Estoque (`ItemEstoque`/`MovimentoEstoque`/
-`Produto`, com baixa automática ao vender e entrada/ajuste manual para os
-itens de buffet) e Avulso/Delivery (`caixa.PedidoAvulso`, carrinho →
-confirmação por forma de pagamento → texto WhatsApp) funcionando de ponta
-a ponta. Próximo: Ciclo 6 (Clientes / Fiado). Nota de escopo adiado (ver
-`specs/specs.md`): RF16 (vincular pagamento/avulso a cliente fiado) vai
-para o Ciclo 6, quando `Cliente` existir — precisa de um FK opcional novo
-em `caixa.Pagamento` e `caixa.PedidoAvulso`.
+comanda), módulo Estoque (`ItemEstoque`/`MovimentoEstoque`/`Produto`, com
+baixa automática ao vender e entrada/ajuste manual para os itens de
+buffet) e Avulso/Delivery (`caixa.PedidoAvulso`, carrinho → confirmação
+por forma de pagamento → texto WhatsApp) funcionando de ponta a ponta, e
+agora o módulo Clientes (`Cliente`/`LancamentoContaCliente`, conta
+corrente, fechamento mensal, extrato) com RF16 implementado — pagamento
+de comanda e avulso/delivery aceitam "Fiado" como forma de pagamento,
+vinculando a um cliente (FK opcional em `caixa.Pagamento` e
+`caixa.PedidoAvulso`). Primeira suíte `pytest-django` do projeto (13
+testes, regras financeiras do Ciclo 6). Próximo: Ciclo 7 (Dashboard e
+Relatórios).
+
+Problemas pré-existentes conhecidos, registrados mas não corrigidos (ver
+detalhe em `specs/specs.md`, seção Ciclo 6): comanda com desconto de 100%
+não pode ser paga (Ciclo 4); `baixar_estoque` não valida saldo suficiente
+antes de baixar (Ciclo 5).

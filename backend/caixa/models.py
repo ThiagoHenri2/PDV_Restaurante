@@ -134,9 +134,9 @@ class Pagamento(models.Model):
     várias formas de pagamento, cobrindo também o split entre pessoas).
 
     ``comanda`` referencia o app ``atendimento`` por string para não criar
-    import circular (atendimento já depende de caixa). RF16 (vincular a
-    cliente fiado) fica adiado para o Ciclo 6, mesmo padrão usado para o
-    RF20 — o modelo `Cliente` ainda não existe.
+    import circular (atendimento já depende de caixa). RF16: pode ser
+    vinculado a um `Cliente` fiado quando uma das formas de pagamento for
+    "fiado" (ver `PagamentoViewSet.create`).
     """
 
     NENHUM = "nenhum"
@@ -157,6 +157,9 @@ class Pagamento(models.Model):
     valor_desconto = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     valor_desconto_aplicado = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     valor_final = models.DecimalField(max_digits=10, decimal_places=2)
+    cliente = models.ForeignKey(
+        "clientes.Cliente", on_delete=models.PROTECT, null=True, blank=True, related_name="pagamentos"
+    )
     registrado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -183,11 +186,13 @@ class RecebimentoPagamento(models.Model):
     DEBITO = "debito"
     CREDITO = "credito"
     PIX = "pix"
+    FIADO = "fiado"
     FORMA_CHOICES = [
         (DINHEIRO, "Dinheiro"),
         (DEBITO, "Débito"),
         (CREDITO, "Crédito"),
         (PIX, "PIX"),
+        (FIADO, "Fiado"),
     ]
 
     pagamento = models.ForeignKey(Pagamento, on_delete=models.CASCADE, related_name="recebimentos")
@@ -234,6 +239,9 @@ class PedidoAvulso(models.Model):
     valor_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     caixa = models.ForeignKey(
         Caixa, on_delete=models.PROTECT, null=True, blank=True, related_name="pedidos_avulsos"
+    )
+    cliente = models.ForeignKey(
+        "clientes.Cliente", on_delete=models.PROTECT, null=True, blank=True, related_name="pedidos_avulsos"
     )
     criado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="pedidos_avulsos_criados"

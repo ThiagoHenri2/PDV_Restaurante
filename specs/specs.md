@@ -16,7 +16,7 @@
 | 3 | Atendimento self-service (comandas) | ✅ Concluído |
 | 4 | Finalização de pagamento (cálculo, desconto, split, fiado) | ✅ Concluído |
 | 5 | Produtos, Avulso/Delivery e Estoque | ✅ Concluído |
-| 6 | Clientes / Fiado | ⬜ Não iniciado |
+| 6 | Clientes / Fiado | ✅ Concluído |
 | 7 | Dashboard e Relatórios | ⬜ Não iniciado |
 | 8 | Hardening e deploy na VPS Hostinger | ⬜ Não iniciado |
 
@@ -348,14 +348,76 @@ avulso só é possível enquanto ele ainda está "aberto" (carrinho) —
 cancelar um pedido já confirmado (que já baixou estoque e já entrou no
 caixa) ficou fora do escopo deste ciclo.
 
-## Próximo ciclo (Ciclo 6 — Clientes / Fiado)
+## Ciclo 6 — o que foi entregue
 
-Escopo: RF16, RF32–RF35. Cadastro de clientes; conta corrente (cada
-consumo vinculado a um cliente gera um lançamento de débito); fechamento
-mensal da conta; histórico/extrato por cliente. RF16 (vincular pagamento
-de mesa, avulso ou delivery a um cliente fiado) finalmente possível —
-precisa de um FK opcional `cliente` em `caixa.Pagamento` e em
-`caixa.PedidoAvulso` (novas migrations, sem quebrar os registros já
-existentes, que continuam com `cliente=None`). Risco baixo — depende
-só dos Ciclos 4 e 5 já estarem gerando lançamentos corretamente, o que foi
-confirmado nos testes manuais de ambos.
+- Novo app `clientes` ganhou modelos reais: `Cliente` (RF32 — nome,
+  telefone, observações, `ativo`) e `LancamentoContaCliente` (RF33 —
+  ledger com tipo `consumo`/`pagamento` e valor; mesmo padrão já usado
+  para o saldo do caixa e do estoque — não existe campo de "saldo atual"
+  guardado, `Cliente.saldo_devedor()` soma os lançamentos).
+- `clientes/services.py`: funções únicas para criar lançamentos
+  (`lancar_consumo`, `lancar_pagamento`), mesmo princípio do
+  `contas.auditoria.registrar_auditoria` e do `estoque/services.py`.
+- RF16 finalmente possível: `caixa.Pagamento` e `caixa.PedidoAvulso`
+  ganharam um FK opcional `cliente` (null=True, `on_delete=PROTECT`,
+  registros antigos continuam com `cliente=None`); `fiado` foi adicionado
+  como forma de pagamento em `RecebimentoPagamento.FORMA_CHOICES`. Pagar
+  uma comanda (ou confirmar um avulso/delivery) com "Fiado" exige escolher
+  um cliente e gera automaticamente um `LancamentoContaCliente` de
+  consumo — sem contar como dinheiro recebido no caixa
+  (`Caixa.calcular_valor_esperado()` continua somando só `forma=dinheiro`,
+  comportamento confirmado sem alteração).
+- Endpoint `/api/clientes/` (GET/POST/PATCH, sem DELETE — cliente com
+  histórico não pode ser removido, só inativado via `ativo=False`) com
+  ações `extrato` (RF35 — saldo devedor + histórico de lançamentos) e
+  `fechar_mes` (RF34 — fechamento total ou parcial; lê saldo e cria o
+  lançamento de pagamento dentro da mesma transação com
+  `select_for_update`, para dois fechamentos concorrentes do mesmo
+  cliente não lerem o mesmo saldo "cheio"; rejeita valor zerado/negativo e
+  valor maior que o saldo devedor). Restrito a Administrador/Caixa (dado
+  financeiro).
+- Primeira suíte de testes automatizados do projeto (`pytest-django`,
+  exigido desde o início pelo `CLAUDE.md` mas só agora com um app que
+  pedia testes de regra financeira de verdade): 13 testes cobrindo saldo
+  devedor, fechamento mensal (total, parcial, rejeições) e os fluxos de
+  pagamento/avulso fiado (com e sem cliente, split parcial em fiado,
+  regressão de não gravar `cliente` quando a forma não é fiado, e
+  `cliente` inválido retornando 400 em vez de erro 500).
+- Frontend: páginas `Clientes` (lista com saldo devedor em destaque
+  quando positivo, cadastro) e detalhe do cliente (ativar/inativar,
+  extrato com consumo/pagamento coloridos, fechar conta total ou
+  parcial), em `/clientes...`; a tela de pagamento de comanda e a de
+  confirmação de avulso/delivery ganharam "Fiado" como forma de pagamento,
+  com seletor de cliente que só aparece quando necessário. Acessível pelo
+  menu da Home para Administrador/Caixa.
+- Revisão dedicada (agente `qa-reviewer`) nas regras financeiras deste
+  ciclo encontrou e corrigiu três problemas antes da liberação: pedido
+  avulso pago em dinheiro podia gravar um `cliente` por engano (campo
+  perdido no payload); fechamento mensal aceitava valor maior que o saldo
+  devedor sem erro (deixaria o cliente "credor" por engano); leitura do
+  saldo no fechamento mensal fora da transação atômica (risco de corrida
+  em fechamentos concorrentes do mesmo cliente). Os três têm teste de
+  regressão.
+- Testado manualmente pelo usuário no navegador (cadastro de cliente,
+  pagamento de comanda e de avulso em fiado, extrato, fechamento mensal).
+  Verificação de tipos do frontend (`tsc -b`) sem erros.
+
+**Problemas pré-existentes encontrados durante a revisão deste ciclo, não
+corrigidos (fora do escopo de Ciclo 6, registrados aqui para um ciclo
+futuro)**: (1) desde o Ciclo 4, uma comanda com desconto de 100% (valor
+final R$0) não pode ser paga pela API atual, porque é exigido pelo menos
+um `RecebimentoPagamento` com valor > 0; (2) desde o Ciclo 5,
+`estoque.services.baixar_estoque` não valida se há saldo suficiente antes
+de baixar — uma venda pode deixar o estoque negativo sem aviso.
+
+## Próximo ciclo (Ciclo 7 — Dashboard e Relatórios)
+
+Escopo: RF36–RF39. Dashboard de vendas (faturamento por período, formas
+de pagamento, ticket médio), página de itens em baixa no estoque,
+relatório financeiro de caixa (entradas/saídas por período) e relatório
+de contas a receber (clientes fiado em aberto). Diferente dos ciclos
+anteriores, o app `relatorios` não tem modelos próprios — só agrega dados
+já existentes em `caixa`, `estoque` e `clientes` (ledgers que já estão
+corretos, confirmado pelos testes automatizados de cada ciclo). Risco
+baixo de regra de negócio nova; o cuidado principal é desempenho das
+agregações (RNF03) à medida que o histórico crescer.

@@ -1,3 +1,15 @@
-from django.contrib import admin  # noqa: F401
+from django.contrib import admin
 
-# Registros de admin deste app virão junto com os modelos, no Ciclo 6.
+from .models import Cliente, LancamentoContaCliente
+
+
+@admin.register(Cliente)
+class ClienteAdmin(admin.ModelAdmin):
+    list_display = ["id", "nome", "telefone", "ativo", "criado_em"]
+    list_filter = ["ativo"]
+
+
+@admin.register(LancamentoContaCliente)
+class LancamentoContaClienteAdmin(admin.ModelAdmin):
+    list_display = ["id", "cliente", "tipo", "valor", "criado_por", "criado_em"]
+    list_filter = ["tipo"]

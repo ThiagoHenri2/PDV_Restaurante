@@ -9,6 +9,8 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from atendimento.models import Comanda
+from clientes import services as clientes_services
+from clientes.models import Cliente
 from contas.auditoria import registrar_auditoria
 from contas.permissions import exige_papel
 from estoque import services as estoque_services
@@ -261,6 +263,22 @@ class PagamentoViewSet(ModelViewSet):
                 }
             )
 
+        total_fiado = sum(
+            (item["valor"] for item in recebimentos_limpos if item["forma"] == RecebimentoPagamento.FIADO),
+            Decimal("0"),
+        )
+        cliente_id = request.data.get("cliente")
+        cliente = None
+        if total_fiado > 0 and not cliente_id:
+            raise serializers.ValidationError(
+                {"cliente": "Informe o cliente fiado para usar a forma de pagamento Fiado."}
+            )
+        if cliente_id:
+            try:
+                cliente = Cliente.objects.get(pk=cliente_id)
+            except (Cliente.DoesNotExist, ValueError, TypeError):
+                raise serializers.ValidationError({"cliente": "Cliente não encontrado."})
+
         with transaction.atomic():
             pagamento = Pagamento.objects.create(
                 comanda=comanda,
@@ -275,13 +293,24 @@ class PagamentoViewSet(ModelViewSet):
             for recebimento in recebimentos_limpos:
                 RecebimentoPagamento.objects.create(pagamento=pagamento, **recebimento)
 
-            registrar_auditoria(
-                request.user,
-                "comanda_pagamento_finalizado",
+            descricao_auditoria = (
                 f"Pagamento da comanda #{comanda.pk} (mesa {comanda.mesa.numero}): "
                 f"bruto R${valor_bruto}, desconto R${valor_desconto_aplicado} "
-                f"({pagamento.get_tipo_desconto_display()}), final R${valor_final}.",
+                f"({pagamento.get_tipo_desconto_display()}), final R${valor_final}."
             )
+
+            if total_fiado > 0:
+                pagamento.cliente = cliente
+                pagamento.save(update_fields=["cliente"])
+                clientes_services.lancar_consumo(
+                    cliente,
+                    total_fiado,
+                    request.user,
+                    descricao=f"Pagamento comanda #{comanda.pk} (mesa {comanda.mesa.numero}).",
+                )
+                descricao_auditoria += f" Fiado: R${total_fiado} para {cliente.nome}."
+
+            registrar_auditoria(request.user, "comanda_pagamento_finalizado", descricao_auditoria)
 
         return Response(PagamentoSerializer(pagamento).data, status=status.HTTP_201_CREATED)
 
@@ -323,6 +352,18 @@ class PedidoAvulsoViewSet(ModelViewSet):
         if forma_pagamento not in formas_validas:
             raise serializers.ValidationError({"forma_pagamento": "Forma de pagamento inválida."})
 
+        cliente_id = request.data.get("cliente")
+        cliente = None
+        if forma_pagamento == RecebimentoPagamento.FIADO and not cliente_id:
+            raise serializers.ValidationError(
+                {"cliente": "Informe o cliente fiado para usar a forma de pagamento Fiado."}
+            )
+        if cliente_id:
+            try:
+                cliente = Cliente.objects.get(pk=cliente_id)
+            except (Cliente.DoesNotExist, ValueError, TypeError):
+                raise serializers.ValidationError({"cliente": "Cliente não encontrado."})
+
         caixa = Caixa.objects.filter(status=Caixa.ABERTO).first()
         if not caixa:
             raise serializers.ValidationError({"detail": "Não há caixa aberto para confirmar este pedido."})
@@ -342,15 +383,25 @@ class PedidoAvulsoViewSet(ModelViewSet):
             pedido.forma_pagamento = forma_pagamento
             pedido.valor_total = valor_total
             pedido.caixa = caixa
+            pedido.cliente = cliente if forma_pagamento == RecebimentoPagamento.FIADO else None
             pedido.confirmado_por = request.user
             pedido.confirmado_em = timezone.now()
             pedido.save()
 
-            registrar_auditoria(
-                request.user,
-                "pedido_avulso_confirmado",
-                f"Pedido avulso #{pedido.pk} ({pedido.tipo}) confirmado: R${valor_total} em {forma_pagamento}.",
+            descricao_auditoria = (
+                f"Pedido avulso #{pedido.pk} ({pedido.tipo}) confirmado: R${valor_total} em {forma_pagamento}."
             )
+
+            if forma_pagamento == RecebimentoPagamento.FIADO:
+                clientes_services.lancar_consumo(
+                    cliente,
+                    valor_total,
+                    request.user,
+                    descricao=f"Pedido avulso #{pedido.pk} ({pedido.get_tipo_display()}).",
+                )
+                descricao_auditoria += f" Fiado para {cliente.nome}."
+
+            registrar_auditoria(request.user, "pedido_avulso_confirmado", descricao_auditoria)
 
         return Response(PedidoAvulsoSerializer(pedido).data)
 

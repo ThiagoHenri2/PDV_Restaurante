@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../../lib/api";
 import type { FormaPagamento, PedidoAvulso } from "../../lib/caixa";
+import type { Cliente } from "../../lib/clientes";
 import type { Produto } from "../../lib/estoque";
 
 const FORMAS: { value: FormaPagamento; label: string }[] = [
@@ -11,6 +12,7 @@ const FORMAS: { value: FormaPagamento; label: string }[] = [
   { value: "debito", label: "Débito" },
   { value: "credito", label: "Crédito" },
   { value: "pix", label: "PIX" },
+  { value: "fiado", label: "Fiado" },
 ];
 
 export default function PedidoAvulsoDetalhePage() {
@@ -20,6 +22,7 @@ export default function PedidoAvulsoDetalhePage() {
 
   const [novoItem, setNovoItem] = useState({ produto: "", quantidade: "1" });
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("dinheiro");
+  const [clienteId, setClienteId] = useState("");
   const [erro, setErro] = useState("");
   const [textoWhatsapp, setTextoWhatsapp] = useState("");
 
@@ -32,6 +35,13 @@ export default function PedidoAvulsoDetalhePage() {
     queryKey: ["produtos"],
     queryFn: async () => (await api.get<Produto[]>("/produtos/")).data,
   });
+
+  const { data: clientes } = useQuery({
+    queryKey: ["clientes"],
+    queryFn: async () => (await api.get<Cliente[]>("/clientes/")).data,
+  });
+
+  const clientesAtivos = (clientes ?? []).filter((c) => c.ativo);
 
   function invalidar() {
     queryClient.invalidateQueries({ queryKey: ["pedido-avulso", id] });
@@ -61,14 +71,31 @@ export default function PedidoAvulsoDetalhePage() {
 
   const confirmar = useMutation({
     mutationFn: async () =>
-      api.post(`/pedidos-avulsos/${id}/confirmar/`, { forma_pagamento: formaPagamento }),
+      api.post(`/pedidos-avulsos/${id}/confirmar/`, {
+        forma_pagamento: formaPagamento,
+        ...(formaPagamento === "fiado" && clienteId ? { cliente: Number(clienteId) } : {}),
+      }),
     onSuccess: () => {
       invalidar();
       setErro("");
     },
-    onError: (e: any) =>
-      setErro(e.response?.data?.detail || "Não foi possível confirmar o pedido."),
+    onError: (e: any) => {
+      const detalhe = e.response?.data;
+      const mensagem = detalhe
+        ? Object.values(detalhe).flat().join(" ")
+        : "Não foi possível confirmar o pedido.";
+      setErro(mensagem);
+    },
   });
+
+  function handleConfirmar() {
+    setErro("");
+    if (formaPagamento === "fiado" && !clienteId) {
+      setErro("Selecione o cliente para o pagamento fiado.");
+      return;
+    }
+    confirmar.mutate();
+  }
 
   const cancelar = useMutation({
     mutationFn: async () => api.post(`/pedidos-avulsos/${id}/cancelar/`),
@@ -203,8 +230,23 @@ export default function PedidoAvulsoDetalhePage() {
                 </option>
               ))}
             </select>
+            {formaPagamento === "fiado" && (
+              <select
+                value={clienteId}
+                onChange={(e) => setClienteId(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Selecione o cliente</option>
+                {clientesAtivos.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
-              onClick={() => confirmar.mutate()}
+              onClick={handleConfirmar}
               disabled={confirmar.isPending || pedido.itens.length === 0}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >

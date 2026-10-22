@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import type { Comanda } from "../../lib/atendimento";
 import type { FormaPagamento, TipoDesconto } from "../../lib/caixa";
+import type { Cliente } from "../../lib/clientes";
 
 interface LinhaRecebimento {
   forma: FormaPagamento;
@@ -17,6 +18,7 @@ const FORMAS: { valor: FormaPagamento; rotulo: string }[] = [
   { valor: "debito", rotulo: "Débito" },
   { valor: "credito", rotulo: "Crédito" },
   { valor: "pix", rotulo: "PIX" },
+  { valor: "fiado", rotulo: "Fiado" },
 ];
 
 export default function PagamentoPage() {
@@ -29,12 +31,21 @@ export default function PagamentoPage() {
   const [recebimentos, setRecebimentos] = useState<LinhaRecebimento[]>([
     { forma: "dinheiro", valor: "", descricao: "" },
   ]);
+  const [clienteId, setClienteId] = useState("");
   const [erro, setErro] = useState("");
 
   const { data: comanda, isLoading } = useQuery({
     queryKey: ["comanda", comandaId],
     queryFn: async () => (await api.get<Comanda>(`/comandas/${comandaId}/`)).data,
   });
+
+  const { data: clientes } = useQuery({
+    queryKey: ["clientes"],
+    queryFn: async () => (await api.get<Cliente[]>("/clientes/")).data,
+  });
+
+  const temFiado = recebimentos.some((r) => r.forma === "fiado");
+  const clientesAtivos = (clientes ?? []).filter((c) => c.ativo);
 
   const valorBruto = comanda?.valor_parcial_estimado ?? 0;
 
@@ -61,6 +72,7 @@ export default function PagamentoPage() {
           valor: r.valor,
           descricao: r.descricao,
         })),
+        ...(temFiado && clienteId ? { cliente: Number(clienteId) } : {}),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["comanda", comandaId] });
@@ -79,6 +91,10 @@ export default function PagamentoPage() {
     setErro("");
     if (diferenca !== 0) {
       setErro("A soma das formas de pagamento precisa ser igual ao valor final.");
+      return;
+    }
+    if (temFiado && !clienteId) {
+      setErro("Selecione o cliente para o pagamento fiado.");
       return;
     }
     finalizar.mutate();
@@ -237,6 +253,25 @@ export default function PagamentoPage() {
           >
             + Adicionar forma de pagamento / dividir conta
           </button>
+
+          {temFiado && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Cliente (fiado)</label>
+              <select
+                value={clienteId}
+                onChange={(e) => setClienteId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Selecione o cliente</option>
+                {clientesAtivos.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <p
             className={`text-sm ${diferenca === 0 ? "text-emerald-600" : "text-red-600"}`}

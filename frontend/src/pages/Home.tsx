@@ -66,6 +66,12 @@ export default function Home() {
               >
                 Avulso / Delivery →
               </Link>
+              <Link
+                to="/clientes"
+                className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Clientes (fiado) →
+              </Link>
             </>
           )}
 

@@ -83,6 +83,7 @@ class PagamentoSerializer(serializers.ModelSerializer):
     registrado_por_username = serializers.CharField(
         source="registrado_por.username", read_only=True, default=None
     )
+    cliente_nome = serializers.CharField(source="cliente.nome", read_only=True, default=None)
     recebimentos = RecebimentoPagamentoSerializer(many=True, read_only=True)
 
     class Meta:
@@ -97,6 +98,8 @@ class PagamentoSerializer(serializers.ModelSerializer):
             "valor_desconto",
             "valor_desconto_aplicado",
             "valor_final",
+            "cliente",
+            "cliente_nome",
             "registrado_por_username",
             "registrado_em",
             "recebimentos",
@@ -121,6 +124,7 @@ class PedidoAvulsoSerializer(serializers.ModelSerializer):
     confirmado_por_username = serializers.CharField(
         source="confirmado_por.username", read_only=True, default=None
     )
+    cliente_nome = serializers.CharField(source="cliente.nome", read_only=True, default=None)
     itens = ItemPedidoAvulsoSerializer(many=True, read_only=True)
     valor_calculado = serializers.SerializerMethodField()
 
@@ -134,6 +138,8 @@ class PedidoAvulsoSerializer(serializers.ModelSerializer):
             "forma_pagamento",
             "valor_total",
             "caixa",
+            "cliente",
+            "cliente_nome",
             "criado_por_username",
             "criado_em",
             "confirmado_por_username",
@@ -146,6 +152,7 @@ class PedidoAvulsoSerializer(serializers.ModelSerializer):
             "forma_pagamento",
             "valor_total",
             "caixa",
+            "cliente",
             "criado_por_username",
             "criado_em",
             "confirmado_por_username",

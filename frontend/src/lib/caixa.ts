@@ -36,7 +36,7 @@ export interface Caixa {
   movimentos: MovimentoCaixa[];
 }
 
-export type FormaPagamento = "dinheiro" | "debito" | "credito" | "pix";
+export type FormaPagamento = "dinheiro" | "debito" | "credito" | "pix" | "fiado";
 export type TipoDesconto = "nenhum" | "fixo" | "percentual";
 
 export interface RecebimentoPagamento {
@@ -59,6 +59,8 @@ export interface Pagamento {
   registrado_por_username: string | null;
   registrado_em: string;
   recebimentos: RecebimentoPagamento[];
+  cliente: number | null;
+  cliente_nome: string | null;
 }
 
 export type TipoPedidoAvulso = "balcao" | "delivery";
@@ -88,4 +90,6 @@ export interface PedidoAvulso {
   confirmado_em: string | null;
   itens: ItemPedidoAvulso[];
   valor_calculado: number;
+  cliente: number | null;
+  cliente_nome: string | null;
 }

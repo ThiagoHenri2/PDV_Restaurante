@@ -13,6 +13,8 @@ import MesasPage from "./pages/caixa/MesasPage";
 import PagamentoPage from "./pages/caixa/PagamentoPage";
 import PedidoAvulsoDetalhePage from "./pages/caixa/PedidoAvulsoDetalhePage";
 import PedidosAvulsosPage from "./pages/caixa/PedidosAvulsosPage";
+import ClienteDetalhePage from "./pages/clientes/ClienteDetalhePage";
+import ClientesPage from "./pages/clientes/ClientesPage";
 import ItensEstoquePage from "./pages/estoque/ItensEstoquePage";
 import ProdutosPage from "./pages/estoque/ProdutosPage";
 
@@ -37,6 +39,8 @@ export default function App() {
           <Route path="/caixa/comandas/:comandaId/pagamento" element={<PagamentoPage />} />
           <Route path="/caixa/avulso" element={<PedidosAvulsosPage />} />
           <Route path="/caixa/avulso/:id" element={<PedidoAvulsoDetalhePage />} />
+          <Route path="/clientes" element={<ClientesPage />} />
+          <Route path="/clientes/:id" element={<ClienteDetalhePage />} />
         </Route>
 
         <Route element={<RotaProtegida papeis={["Administrador", "Caixa", "Atendente"]} />}>
