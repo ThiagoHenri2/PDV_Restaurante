@@ -26,7 +26,7 @@ export default function Login() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-brand-50 px-4">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 shadow-sm ring-1 ring-slate-200"
@@ -61,7 +61,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={enviando}
-          className="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="w-full rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {enviando ? "Entrando..." : "Entrar"}
         </button>

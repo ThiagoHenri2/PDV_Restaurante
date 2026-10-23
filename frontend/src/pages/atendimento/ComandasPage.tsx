@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
+import { Cabecalho, Modal } from "../../components/ui";
 import { api } from "../../lib/api";
 import type { Comanda } from "../../lib/atendimento";
 import type { Mesa } from "../../lib/caixa";
@@ -11,6 +12,7 @@ export default function ComandasPage() {
   const navigate = useNavigate();
   const [mesaSelecionada, setMesaSelecionada] = useState<Mesa | null>(null);
   const [quantidadePessoas, setQuantidadePessoas] = useState("1");
+  const [nomeResponsavel, setNomeResponsavel] = useState("");
   const [erro, setErro] = useState("");
 
   const { data: mesas } = useQuery({
@@ -32,12 +34,14 @@ export default function ComandasPage() {
       api.post<Comanda>("/comandas/", {
         mesa: mesaSelecionada!.id,
         quantidade_pessoas: Number(quantidadePessoas),
+        nome_responsavel: nomeResponsavel,
       }),
     onSuccess: ({ data }) => {
       queryClient.invalidateQueries({ queryKey: ["mesas"] });
       queryClient.invalidateQueries({ queryKey: ["comandas"] });
       setMesaSelecionada(null);
       setQuantidadePessoas("1");
+      setNomeResponsavel("");
       setErro("");
       navigate(`/atendimento/${data.id}`);
     },
@@ -54,22 +58,24 @@ export default function ComandasPage() {
     setErro("");
   }
 
+  function fecharModal() {
+    setMesaSelecionada(null);
+    setQuantidadePessoas("1");
+    setNomeResponsavel("");
+    setErro("");
+  }
+
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-xl space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-slate-900">Atendimento</h1>
-          <Link to="/" className="text-sm text-slate-500 hover:text-slate-700">
-            ← Voltar
-          </Link>
-        </div>
+    <main className="min-h-screen bg-brand-50 px-4 py-8">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <Cabecalho titulo="Atendimento" />
 
         <p className="text-sm text-slate-500">
           Toque numa mesa livre para abrir a comanda, ou numa mesa ocupada para ver a comanda
           atual.
         </p>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
           {mesas?.map((mesa) => (
             <button
               key={mesa.id}
@@ -81,22 +87,27 @@ export default function ComandasPage() {
               }`}
             >
               <p className="text-lg font-semibold">Mesa {mesa.numero}</p>
-              <p className="text-xs uppercase">{mesa.status}</p>
+              {mesa.status === "ocupada" && comandaAbertaPorMesa.get(mesa.id)?.nome_responsavel ? (
+                <p className="truncate text-xs">{comandaAbertaPorMesa.get(mesa.id)!.nome_responsavel}</p>
+              ) : (
+                <p className="text-xs uppercase">{mesa.status}</p>
+              )}
             </button>
           ))}
         </div>
 
-        {mesaSelecionada && (
+        <Modal
+          aberto={!!mesaSelecionada}
+          onClose={fecharModal}
+          titulo={`Abrir comanda — Mesa ${mesaSelecionada?.numero ?? ""}`}
+        >
           <form
             onSubmit={(e) => {
               e.preventDefault();
               abrirComanda.mutate();
             }}
-            className="space-y-3 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
+            className="space-y-3"
           >
-            <h2 className="text-sm font-semibold text-slate-700">
-              Abrir comanda — Mesa {mesaSelecionada.numero}
-            </h2>
             <div>
               <label className="block text-sm font-medium text-slate-700">
                 Quantidade de pessoas
@@ -108,13 +119,25 @@ export default function ComandasPage() {
                 onChange={(e) => setQuantidadePessoas(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 required
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Nome do responsável pela mesa (opcional)
+              </label>
+              <input
+                value={nomeResponsavel}
+                onChange={(e) => setNomeResponsavel(e.target.value)}
+                placeholder="Ex: João"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
             {erro && <p className="text-sm text-red-600">{erro}</p>}
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => setMesaSelecionada(null)}
+                onClick={fecharModal}
                 className="flex-1 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600"
               >
                 Cancelar
@@ -122,13 +145,13 @@ export default function ComandasPage() {
               <button
                 type="submit"
                 disabled={abrirComanda.isPending}
-                className="flex-1 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="flex-1 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {abrirComanda.isPending ? "Abrindo..." : "Abrir comanda"}
               </button>
             </div>
           </form>
-        )}
+        </Modal>
       </div>
     </main>
   );

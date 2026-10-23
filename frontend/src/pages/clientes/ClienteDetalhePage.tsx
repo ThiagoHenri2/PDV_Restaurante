@@ -53,7 +53,7 @@ export default function ClienteDetalhePage() {
 
   if (isLoading || !cliente) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-8">
+      <main className="min-h-screen bg-brand-50 px-4 py-8">
         <p className="text-sm text-slate-500">Carregando...</p>
       </main>
     );
@@ -62,8 +62,8 @@ export default function ClienteDetalhePage() {
   const temSaldoDevedor = cliente.saldo_devedor > 0;
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-md space-y-6">
+    <main className="min-h-screen bg-brand-50 px-4 py-8">
+      <div className="mx-auto max-w-2xl space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-slate-900">{cliente.nome}</h1>
           <Link to="/clientes" className="text-sm text-slate-500 hover:text-slate-700">

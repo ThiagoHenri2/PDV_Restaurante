@@ -59,11 +59,11 @@ export default function AdminUsuarios() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-2xl space-y-6">
+    <main className="min-h-screen bg-brand-50 px-4 py-8">
+      <div className="mx-auto max-w-4xl space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-slate-900">Usuários</h1>
-          <Link to="/" className="text-sm text-slate-500 hover:text-slate-700">
+          <Link to="/perfil" className="text-sm text-slate-500 hover:text-slate-700">
             ← Voltar
           </Link>
         </div>
@@ -136,7 +136,7 @@ export default function AdminUsuarios() {
           <button
             type="submit"
             disabled={criar.isPending}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {criar.isPending ? "Criando..." : "Criar usuário"}
           </button>

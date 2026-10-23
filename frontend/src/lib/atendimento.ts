@@ -39,6 +39,7 @@ export interface Comanda {
   mesa: number;
   mesa_numero: number;
   quantidade_pessoas: number;
+  nome_responsavel: string;
   status: "aberta" | "fechada";
   aberta_por_username: string | null;
   aberta_em: string;

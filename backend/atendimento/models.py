@@ -20,6 +20,12 @@ class Comanda(models.Model):
 
     mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name="comandas")
     quantidade_pessoas = models.PositiveIntegerField(default=1)
+    nome_responsavel = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Nome opcional de quem está respondendo pela mesa (não é um cadastro de cliente).",
+    )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=ABERTA)
     aberta_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,

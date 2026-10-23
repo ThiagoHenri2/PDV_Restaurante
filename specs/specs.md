@@ -18,7 +18,7 @@
 | 5 | Produtos, Avulso/Delivery e Estoque | ✅ Concluído |
 | 6 | Clientes / Fiado | ✅ Concluído |
 | 7 | Dashboard e Relatórios | ✅ Concluído |
-| 8 | Reforma visual e navegação persistente | ⬜ Não iniciado |
+| 8 | Reforma visual e navegação persistente | ✅ Concluído |
 | 9 | Acesso via rede local (celular) | ⬜ Não iniciado |
 
 Deploy na VPS Hostinger — **adiado** (decisão explícita do usuário, quer
@@ -407,13 +407,14 @@ caixa) ficou fora do escopo deste ciclo.
   pagamento de comanda e de avulso em fiado, extrato, fechamento mensal).
   Verificação de tipos do frontend (`tsc -b`) sem erros.
 
-**Problemas pré-existentes encontrados durante a revisão deste ciclo, não
-corrigidos (fora do escopo de Ciclo 6, registrados aqui para um ciclo
-futuro)**: (1) desde o Ciclo 4, uma comanda com desconto de 100% (valor
-final R$0) não pode ser paga pela API atual, porque é exigido pelo menos
-um `RecebimentoPagamento` com valor > 0; (2) desde o Ciclo 5,
-`estoque.services.baixar_estoque` não valida se há saldo suficiente antes
-de baixar — uma venda pode deixar o estoque negativo sem aviso.
+**Problemas pré-existentes encontrados durante a revisão deste ciclo**:
+(1) desde o Ciclo 4, uma comanda com desconto de 100% (valor final R$0)
+não podia ser paga pela API, porque era exigido pelo menos um
+`RecebimentoPagamento` com valor > 0 — **corrigido no Ciclo 8** (ver
+abaixo); (2) desde o Ciclo 5, `estoque.services.baixar_estoque` não
+valida se há saldo suficiente antes de baixar — uma venda pode deixar o
+estoque negativo sem aviso. Ainda não corrigido, registrado para um
+ciclo futuro.
 
 ## Ciclo 7 — o que foi entregue
 
@@ -460,3 +461,75 @@ de baixar — uma venda pode deixar o estoque negativo sem aviso.
   os papéis correspondentes.
 - Testado manualmente pelo usuário no navegador (dashboard de vendas,
   relatório de caixa, contas a receber, itens em baixa).
+
+## Ciclo 8 — o que foi entregue
+
+Reforma visual e navegação persistente, bem mais ampla do que o plano
+original por conta de feedback do usuário durante o teste manual — virou
+também uma rodada de correção de bugs reais de fluxo (não só visual).
+
+- **Navegação persistente**: `frontend/src/components/BarraNavegacao.tsx`
+  (bottom tab bar fixa, abas filtradas por papel via `temPapel()`: Caixa,
+  Atendimento, Estoque, Clientes, Relatórios, Perfil) + `LayoutPrincipal.tsx`
+  (`<Outlet/>` + barra), aninhados em `App.tsx` dentro de `<RotaProtegida/>`.
+  Rota `/` passou a ser `RedirecionarInicio.tsx` (redireciona por papel:
+  Administrador/Caixa → `/caixa`, Atendente → `/atendimento`, Estoquista →
+  `/estoque`, demais → `/perfil`). `Home.tsx` foi removida; seu conteúdo
+  (saudação, papéis, sair, link de administração) migrou para
+  `PerfilPage.tsx`.
+- **Paleta visual**: bloco `@theme` em `index.css` com paleta `brand`
+  (terracota/tons de barro e café, inspirada em comida caseira de Minas),
+  substituindo `bg-slate-900`/`bg-slate-50` nos botões primários, estado
+  ativo da barra e fundo das páginas. Ícones via `lucide-react`.
+  `frontend/src/components/ui.tsx` (`Card`, `BotaoPrimario`,
+  `BotaoSecundario`, `Cabecalho`, `Modal`) — migração incremental, usado
+  nas páginas tocadas neste ciclo.
+- **Hubs consolidados** (fruto do pedido do usuário de reduzir troca de
+  tela): `CaixaPage.tsx` passou a reunir, numa só página — grade de mesas
+  (toque numa mesa ocupada para abrir a comanda), lista de comandas
+  aguardando pagamento, fluxo completo de Avulso/Delivery (iniciar
+  pedido, adicionar itens, confirmar pagamento — sem navegar para outra
+  tela), configuração de preço (em modal sobreposto, não mais página
+  própria) e sangria/suprimento/fechamento. `EstoquePage.tsx` passou a
+  reunir Produtos e Itens de buffet na mesma página (duas seções lado a
+  lado no desktop). As páginas antigas `PedidosAvulsosPage`,
+  `PedidoAvulsoDetalhePage`, `ProdutosPage` e `ItensEstoquePage` foram
+  removidas (conteúdo absorvido pelos hubs).
+- **Layout desktop**: páginas com múltiplas seções (Caixa, Estoque,
+  Relatórios) usam grid responsivo (`grid-cols-1 lg:grid-cols-2`) em vez
+  de uma coluna única centralizada; páginas de lista (Atendimento,
+  Clientes, Mesas) ganharam containers mais largos e grades com mais
+  colunas em telas grandes.
+- **Bug corrigido — mesa "livre" não deixava abrir comanda**: causa raiz
+  era desincronização entre `Mesa.status` e a existência real de uma
+  `Comanda` aberta (o toggle manual de status em `MesasPage` não validava
+  nada). Dado de teste reconciliado manualmente; `MesaViewSet.perform_update`
+  agora valida a mudança de status contra comandas abertas, e o toggle
+  manual só permite liberar uma mesa ocupada sem comanda aberta.
+- **Bug corrigido — pagamento de comanda com valor final R$0 não
+  finalizava**: `PagamentoViewSet.create` exigia ao menos um
+  `RecebimentoPagamento` com valor > 0 mesmo quando `valor_final` era
+  zero (comanda sem itens, ou desconto de 100% — problema pré-existente
+  desde o Ciclo 4, registrado na revisão do Ciclo 6). Agora, quando
+  `valor_final == 0`, a finalização não exige forma de pagamento.
+  Frontend mostra "Nada a pagar" nesse caso.
+- **Bug corrigido — "← Voltar" sempre ia para Atendimento**: em
+  `ComandaDetalhePage` e `PagamentoPage`, o link de voltar era fixo para
+  `/atendimento`, mesmo quando a navegação tinha vindo do Caixa (grade de
+  mesas ou lista de pagamentos pendentes). Trocado por `navigate(-1)`
+  (volta para a tela de origem real).
+- **Bug corrigido — saldo do caixa não atualizava após confirmar
+  avulso**: a mutation de confirmar pedido avulso não invalidava a query
+  `caixa-atual`; como o fluxo passou a ficar embutido na própria página do
+  Caixa (sem remount), o problema deixou de passar despercebido. Corrigido
+  invalidando `caixa-atual` também.
+- **RF18 ampliado**: `Comanda` ganhou `nome_responsavel` (texto livre,
+  opcional, não é cadastro de cliente) — informado ao abrir a comanda
+  (modal em `ComandasPage`), exibido na grade de mesas, no detalhe da
+  comanda e na lista de pagamentos pendentes do Caixa.
+- Testado manualmente pelo usuário no navegador, logado como os papéis
+  relevantes, ao longo de várias rodadas de ajuste.
+
+**Pendência conhecida, fora do escopo deste ciclo**: o problema (2)
+registrado na revisão do Ciclo 6 (`baixar_estoque` sem validar saldo
+suficiente) continua sem correção.

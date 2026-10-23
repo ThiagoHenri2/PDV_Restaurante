@@ -131,7 +131,7 @@ export default function ComandaDetalhePage() {
 
   if (isLoading || !comanda) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-8">
+      <main className="min-h-screen bg-brand-50 px-4 py-8">
         <p className="text-sm text-slate-500">Carregando...</p>
       </main>
     );
@@ -141,15 +141,23 @@ export default function ComandaDetalhePage() {
   const mesasLivres = (mesas ?? []).filter((m) => m.status === "livre");
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-xl space-y-6">
+    <main className="min-h-screen bg-brand-50 px-4 py-8">
+      <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-slate-900">
-            Mesa {comanda.mesa_numero} — Comanda #{comanda.id}
-          </h1>
-          <Link to="/atendimento" className="text-sm text-slate-500 hover:text-slate-700">
+          <div>
+            <h1 className="text-lg font-semibold text-slate-900">
+              Mesa {comanda.mesa_numero} — Comanda #{comanda.id}
+            </h1>
+            {comanda.nome_responsavel && (
+              <p className="text-sm text-slate-500">{comanda.nome_responsavel}</p>
+            )}
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="text-sm text-slate-500 hover:text-slate-700"
+          >
             ← Voltar
-          </Link>
+          </button>
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -205,7 +213,7 @@ export default function ComandaDetalhePage() {
             <button
               type="submit"
               disabled={adicionarItem.isPending}
-              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               Lançar
             </button>
@@ -250,7 +258,7 @@ export default function ComandaDetalhePage() {
                       <button
                         onClick={() => salvarEdicao.mutate(item.id)}
                         disabled={salvarEdicao.isPending}
-                        className="flex-1 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
+                        className="flex-1 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white"
                       >
                         Salvar
                       </button>
@@ -331,7 +339,7 @@ export default function ComandaDetalhePage() {
             <button
               type="submit"
               disabled={adicionarItemProduto.isPending}
-              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               Lançar
             </button>
@@ -387,7 +395,7 @@ export default function ComandaDetalhePage() {
                 {temPapel(usuario, "Administrador", "Caixa") ? (
                   <Link
                     to={`/caixa/comandas/${comanda.id}/pagamento`}
-                    className="mt-3 block w-full rounded-lg bg-slate-900 px-4 py-2 text-center text-sm font-medium text-white"
+                    className="mt-3 block w-full rounded-lg bg-brand-600 px-4 py-2 text-center text-sm font-medium text-white"
                   >
                     Finalizar pagamento
                   </Link>
@@ -435,7 +443,7 @@ export default function ComandaDetalhePage() {
                   <button
                     onClick={() => transferir.mutate()}
                     disabled={!mesaDestino || transferir.isPending}
-                    className="flex-1 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                    className="flex-1 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                   >
                     Confirmar
                   </button>

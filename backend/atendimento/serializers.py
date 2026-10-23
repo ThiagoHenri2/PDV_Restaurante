@@ -93,6 +93,7 @@ class ComandaSerializer(serializers.ModelSerializer):
             "mesa",
             "mesa_numero",
             "quantidade_pessoas",
+            "nome_responsavel",
             "status",
             "aberta_por_username",
             "aberta_em",

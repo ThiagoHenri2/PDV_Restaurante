@@ -25,12 +25,15 @@ export default function MesasPage() {
     onError: () => setErro("Não foi possível criar a mesa (número já existe?)."),
   });
 
-  const alternarStatus = useMutation({
-    mutationFn: async (mesa: Mesa) =>
-      api.patch(`/mesas/${mesa.id}/`, {
-        status: mesa.status === "livre" ? "ocupada" : "livre",
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mesas"] }),
+  const liberarMesa = useMutation({
+    mutationFn: async (mesa: Mesa) => api.patch(`/mesas/${mesa.id}/`, { status: "livre" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mesas"] });
+      setErro("");
+    },
+    onError: (e: any) => {
+      setErro(e.response?.data?.status ?? "Não foi possível liberar esta mesa.");
+    },
   });
 
   function handleSubmit(e: FormEvent) {
@@ -38,12 +41,16 @@ export default function MesasPage() {
     criar.mutate();
   }
 
+  function handleClickMesa(mesa: Mesa) {
+    if (mesa.status === "ocupada") liberarMesa.mutate(mesa);
+  }
+
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-xl space-y-6">
+    <main className="min-h-screen bg-brand-50 px-4 py-8">
+      <div className="mx-auto max-w-4xl space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-slate-900">Mesas</h1>
-          <Link to="/" className="text-sm text-slate-500 hover:text-slate-700">
+          <Link to="/caixa" className="text-sm text-slate-500 hover:text-slate-700">
             ← Voltar
           </Link>
         </div>
@@ -66,21 +73,27 @@ export default function MesasPage() {
           <button
             type="submit"
             disabled={criar.isPending}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             Adicionar
           </button>
         </form>
         {erro && <p className="text-sm text-red-600">{erro}</p>}
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <p className="text-xs text-slate-500">
+          Mesas livres são ocupadas automaticamente ao abrir uma comanda (aba Atendimento). Toque
+          numa mesa ocupada sem comanda aberta para liberá-la manualmente.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
           {mesas?.map((mesa) => (
             <button
               key={mesa.id}
-              onClick={() => alternarStatus.mutate(mesa)}
+              onClick={() => handleClickMesa(mesa)}
+              disabled={mesa.status === "livre"}
               className={`rounded-xl p-4 text-center shadow-sm ring-1 transition ${
                 mesa.status === "livre"
-                  ? "bg-emerald-50 ring-emerald-200 text-emerald-700"
+                  ? "cursor-default bg-emerald-50 ring-emerald-200 text-emerald-700"
                   : "bg-amber-50 ring-amber-200 text-amber-700"
               }`}
             >

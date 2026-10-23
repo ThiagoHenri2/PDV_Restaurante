@@ -10,11 +10,11 @@ export default function EstoqueBaixoPage() {
   });
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-md space-y-6">
+    <main className="min-h-screen bg-brand-50 px-4 py-8">
+      <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-slate-900">Itens em baixa</h1>
-          <Link to="/" className="text-sm text-slate-500 hover:text-slate-700">
+          <Link to="/estoque" className="text-sm text-slate-500 hover:text-slate-700">
             ← Voltar
           </Link>
         </div>

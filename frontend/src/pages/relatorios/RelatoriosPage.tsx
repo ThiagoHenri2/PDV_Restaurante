@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
+import { Cabecalho } from "../../components/ui";
 import { buscarRelatorioVendas } from "../../lib/relatorios";
 
 const ROTULOS_FORMA_PAGAMENTO: Record<string, string> = {
@@ -36,14 +37,9 @@ export default function RelatoriosPage() {
     data?.faturamento_por_dia.reduce((max, dia) => Math.max(max, Number(dia.valor)), 0) ?? 0;
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-md space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-slate-900">Relatórios</h1>
-          <Link to="/" className="text-sm text-slate-500 hover:text-slate-700">
-            ← Voltar
-          </Link>
-        </div>
+    <main className="min-h-screen bg-brand-50 px-4 py-8">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <Cabecalho titulo="Relatórios" />
 
         <div className="flex gap-3">
           <Link
@@ -107,50 +103,52 @@ export default function RelatoriosPage() {
               </div>
             </div>
 
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-              <h2 className="mb-3 text-sm font-semibold text-slate-700">Por forma de pagamento</h2>
-              {data.por_forma_pagamento.length === 0 ? (
-                <p className="text-sm text-slate-400">Nenhuma venda no período.</p>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {data.por_forma_pagamento.map((item) => (
-                    <div key={item.forma} className="flex items-center justify-between py-2 text-sm">
-                      <span className="text-slate-700">
-                        {ROTULOS_FORMA_PAGAMENTO[item.forma] ?? item.forma}
-                      </span>
-                      <span className="font-medium text-slate-900">R$ {Number(item.valor).toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-              <h2 className="mb-3 text-sm font-semibold text-slate-700">Faturamento por dia</h2>
-              {data.faturamento_por_dia.length === 0 ? (
-                <p className="text-sm text-slate-400">Nenhuma venda no período.</p>
-              ) : (
-                <div className="space-y-2">
-                  {data.faturamento_por_dia.map((dia) => (
-                    <div key={dia.data} className="text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-600">
-                          {new Date(dia.data + "T00:00:00").toLocaleDateString("pt-BR")}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <h2 className="mb-3 text-sm font-semibold text-slate-700">Por forma de pagamento</h2>
+                {data.por_forma_pagamento.length === 0 ? (
+                  <p className="text-sm text-slate-400">Nenhuma venda no período.</p>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {data.por_forma_pagamento.map((item) => (
+                      <div key={item.forma} className="flex items-center justify-between py-2 text-sm">
+                        <span className="text-slate-700">
+                          {ROTULOS_FORMA_PAGAMENTO[item.forma] ?? item.forma}
                         </span>
-                        <span className="font-medium text-slate-900">R$ {Number(dia.valor).toFixed(2)}</span>
+                        <span className="font-medium text-slate-900">R$ {Number(item.valor).toFixed(2)}</span>
                       </div>
-                      <div className="mt-1 h-2 rounded-full bg-slate-100">
-                        <div
-                          className="h-2 rounded-full bg-slate-900"
-                          style={{
-                            width: maiorValorDia > 0 ? `${(Number(dia.valor) / maiorValorDia) * 100}%` : "0%",
-                          }}
-                        />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <h2 className="mb-3 text-sm font-semibold text-slate-700">Faturamento por dia</h2>
+                {data.faturamento_por_dia.length === 0 ? (
+                  <p className="text-sm text-slate-400">Nenhuma venda no período.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {data.faturamento_por_dia.map((dia) => (
+                      <div key={dia.data} className="text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600">
+                            {new Date(dia.data + "T00:00:00").toLocaleDateString("pt-BR")}
+                          </span>
+                          <span className="font-medium text-slate-900">R$ {Number(dia.valor).toFixed(2)}</span>
+                        </div>
+                        <div className="mt-1 h-2 rounded-full bg-slate-100">
+                          <div
+                            className="h-2 rounded-full bg-brand-600"
+                            style={{
+                              width: maiorValorDia > 0 ? `${(Number(dia.valor) / maiorValorDia) * 100}%` : "0%",
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}

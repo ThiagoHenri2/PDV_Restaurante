@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../../lib/api";
 import type { Comanda } from "../../lib/atendimento";
@@ -49,6 +49,17 @@ export default function PagamentoPage() {
 
   const valorBruto = comanda?.valor_parcial_estimado ?? 0;
 
+  useEffect(() => {
+    if (!comanda) return;
+    setRecebimentos((atual) =>
+      atual.length === 1 && atual[0].valor === ""
+        ? [{ ...atual[0], valor: comanda.valor_parcial_estimado.toFixed(2) }]
+        : atual,
+    );
+    // Só preenche o valor padrão quando a comanda carrega — não deve sobrescrever o que o
+    // caixa já digitou depois disso.
+  }, [comanda?.id]);
+
   const valorDescontoAplicado = useMemo(() => {
     const desconto = Number(valorDesconto) || 0;
     if (tipoDesconto === "fixo") return Math.min(desconto, valorBruto);
@@ -57,6 +68,7 @@ export default function PagamentoPage() {
   }, [tipoDesconto, valorDesconto, valorBruto]);
 
   const valorFinal = Math.max(0, valorBruto - valorDescontoAplicado);
+  const semCobranca = valorFinal === 0;
 
   const totalRecebido = recebimentos.reduce((soma, r) => soma + (Number(r.valor) || 0), 0);
   const diferenca = Number((valorFinal - totalRecebido).toFixed(2));
@@ -67,18 +79,20 @@ export default function PagamentoPage() {
         comanda: Number(comandaId),
         tipo_desconto: tipoDesconto,
         valor_desconto: valorDesconto,
-        recebimentos: recebimentos.map((r) => ({
-          forma: r.forma,
-          valor: r.valor,
-          descricao: r.descricao,
-        })),
-        ...(temFiado && clienteId ? { cliente: Number(clienteId) } : {}),
+        recebimentos: semCobranca
+          ? []
+          : recebimentos.map((r) => ({
+              forma: r.forma,
+              valor: r.valor,
+              descricao: r.descricao,
+            })),
+        ...(!semCobranca && temFiado && clienteId ? { cliente: Number(clienteId) } : {}),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["comanda", comandaId] });
       queryClient.invalidateQueries({ queryKey: ["comandas"] });
       queryClient.invalidateQueries({ queryKey: ["caixa-atual"] });
-      navigate(`/atendimento/${comandaId}`);
+      navigate("/caixa");
     },
     onError: (e: any) => {
       const detalhe = e.response?.data;
@@ -89,6 +103,10 @@ export default function PagamentoPage() {
 
   function handleSubmit() {
     setErro("");
+    if (semCobranca) {
+      finalizar.mutate();
+      return;
+    }
     if (diferenca !== 0) {
       setErro("A soma das formas de pagamento precisa ser igual ao valor final.");
       return;
@@ -116,7 +134,7 @@ export default function PagamentoPage() {
 
   if (isLoading || !comanda) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-8">
+      <main className="min-h-screen bg-brand-50 px-4 py-8">
         <p className="text-sm text-slate-500">Carregando...</p>
       </main>
     );
@@ -124,27 +142,30 @@ export default function PagamentoPage() {
 
   if (comanda.pago) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-8">
+      <main className="min-h-screen bg-brand-50 px-4 py-8">
         <div className="mx-auto max-w-md space-y-4">
           <p className="text-sm text-slate-600">Esta comanda já foi paga.</p>
-          <Link to={`/atendimento/${comandaId}`} className="text-sm text-slate-500 hover:text-slate-700">
-            ← Voltar para a comanda
-          </Link>
+          <button onClick={() => navigate(-1)} className="text-sm text-slate-500 hover:text-slate-700">
+            ← Voltar
+          </button>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-xl space-y-6">
+    <main className="min-h-screen bg-brand-50 px-4 py-8">
+      <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-slate-900">
             Pagamento — Mesa {comanda.mesa_numero} (Comanda #{comanda.id})
           </h1>
-          <Link to={`/atendimento/${comandaId}`} className="text-sm text-slate-500 hover:text-slate-700">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-sm text-slate-500 hover:text-slate-700"
+          >
             ← Voltar
-          </Link>
+          </button>
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -203,6 +224,12 @@ export default function PagamentoPage() {
           <p className="text-2xl font-semibold text-slate-900">R$ {valorFinal.toFixed(2)}</p>
         </div>
 
+        {semCobranca ? (
+          <div className="rounded-xl bg-emerald-50 p-6 text-sm text-emerald-700 ring-1 ring-emerald-200">
+            Nada a pagar — comanda sem itens lançados ou com desconto de 100%. Pode finalizar sem
+            escolher forma de pagamento.
+          </div>
+        ) : (
         <div className="space-y-3 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <h2 className="text-sm font-semibold text-slate-700">
             Formas de pagamento {recebimentos.length > 1 && "(split)"}
@@ -280,13 +307,14 @@ export default function PagamentoPage() {
             {diferenca !== 0 && " (não bate)"}
           </p>
         </div>
+        )}
 
         {erro && <p className="text-sm text-red-600">{erro}</p>}
 
         <button
           onClick={handleSubmit}
           disabled={finalizar.isPending}
-          className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {finalizar.isPending ? "Finalizando..." : "Finalizar pagamento"}
         </button>

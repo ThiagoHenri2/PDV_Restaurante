@@ -1,1 +1,16 @@
 @import "tailwindcss";
+
+@theme {
+  /* Paleta "comida caseira de Minas": terracota de barro, café e fubá —
+     usada nos botões primários, estado ativo da barra e fundo das páginas. */
+  --color-brand-50: #fbf3e7;
+  --color-brand-100: #f3e1c7;
+  --color-brand-200: #e6c596;
+  --color-brand-300: #d7a463;
+  --color-brand-400: #c5833d;
+  --color-brand-500: #b06423;
+  --color-brand-600: #954f1a;
+  --color-brand-700: #743d15;
+  --color-brand-800: #562d10;
+  --color-brand-900: #3a1e0a;
+}

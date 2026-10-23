@@ -38,7 +38,9 @@ escopo sem checar esse documento primeiro.
   requisito — toda tela nova deve ser testada em viewport de celular.
 - **Infra**: Docker Compose (serviços `db`, `api`, `frontend`). Em
   desenvolvimento local não há Nginx — o frontend fala direto com a API via
-  `VITE_API_URL`. Nginx só entra no Ciclo 8 (deploy na VPS Hostinger).
+  `VITE_API_URL` (ou resolução automática por `window.location.hostname`,
+  ver Ciclo 9). Nginx só entra no deploy na VPS Hostinger (adiado, sem
+  ciclo fixo).
 - O usuário é analista de dados (Python/SQL fortes), **sem experiência
   prévia em desenvolvimento web** — ao final de cada ciclo, explique em
   termos simples o que foi construído e por quê.
@@ -130,7 +132,7 @@ contexto relevante.
 
 ## Estado atual
 
-Ciclos 0 a 7 concluídos: esqueleto do backend/frontend, autenticação JWT e
+Ciclos 0 a 8 concluídos: esqueleto do backend/frontend, autenticação JWT e
 papéis, módulo Caixa (mesas, configuração de preço, abertura/fechamento de
 caixa, sangria/suprimento, pagamento de comanda com desconto/split),
 módulo Atendimento (abrir comanda, lançar/editar/cancelar pratos + extras
@@ -142,89 +144,38 @@ forma de pagamento → texto WhatsApp), módulo Clientes
 (`Cliente`/`LancamentoContaCliente`, conta corrente, fechamento mensal,
 extrato) com RF16 implementado — pagamento de comanda e avulso/delivery
 aceitam "Fiado" como forma de pagamento, vinculando a um cliente (FK
-opcional em `caixa.Pagamento` e `caixa.PedidoAvulso`) — e agora o módulo
+opcional em `caixa.Pagamento` e `caixa.PedidoAvulso`) —, módulo
 Relatórios (app `relatorios`, sem modelos próprios): dashboard de vendas
 (faturamento, formas de pagamento, ticket médio, por dia), relatório de
 caixa (entradas/saídas por sessão), itens em baixa no estoque e contas a
 receber (clientes fiado em aberto), todos com filtro de período onde
-aplicável e RBAC por papel. Suíte `pytest-django` do projeto agora com 29
-testes (13 do Ciclo 6 + 16 do Ciclo 7). Próximo: Ciclo 8 (Reforma visual e
-navegação persistente).
+aplicável e RBAC por papel — e agora o Ciclo 8 (reforma visual completa):
+navegação persistente (bottom tab bar + hubs — Caixa e Estoque reúnem
+tudo numa só página, inclusive Avulso/Delivery e Configuração de preço em
+modal), paleta de cores "comida caseira de Minas" (terracota), layout em
+grid no desktop, e uma rodada de correção de bugs reais de fluxo achados
+durante o teste manual: mesa desincronizada bloqueando abertura de
+comanda, pagamento de comanda com valor final R$0 não finalizava
+(problema pré-existente desde o Ciclo 4, agora corrigido), "← Voltar"
+sempre indo para Atendimento, saldo do caixa não atualizando após avulso
+confirmado. RF18 ganhou `nome_responsavel` opcional na comanda. Suíte
+`pytest-django` do projeto continua com 29 testes (13 do Ciclo 6 + 16 do
+Ciclo 7; o Ciclo 8 não introduziu RF novo que exigisse teste automatizado
+adicional, mas foi coberto por teste manual extenso do usuário). Próximo:
+Ciclo 9 (Acesso via rede local/celular).
 
 Problemas pré-existentes conhecidos, registrados mas não corrigidos (ver
-detalhe em `specs/specs.md`, seção Ciclo 6): comanda com desconto de 100%
-não pode ser paga (Ciclo 4); `baixar_estoque` não valida saldo suficiente
-antes de baixar (Ciclo 5).
+detalhe em `specs/specs.md`, seção Ciclo 6): `baixar_estoque` não valida
+saldo suficiente antes de baixar (Ciclo 5) — o outro problema registrado
+ali (comanda com desconto de 100% não podia ser paga) foi corrigido no
+Ciclo 8.
 
-## Planejado (ainda não implementado) — Ciclos 8 e 9
+## Planejado (ainda não implementado) — Ciclo 9
 
 Planejado em sessão de Plan Mode; aguardando o usuário pedir para
-implementar. Substitui o antigo "Ciclo 8 (deploy na VPS Hostinger)" — o
-deploy foi adiado a pedido do usuário (quer melhorar o visual primeiro) e
-vira um item sem número de ciclo fixo, a retomar quando ele decidir (ver
-`specs/specs.md`).
-
-### Ciclo 8 — Reforma visual + navegação persistente
-
-Decisões já confirmadas pelo usuário: navegação persistente em **todo o
-app** (não só uma tela isolada); login de Administrador/Caixa cai direto
-em `/caixa`.
-
-- **Navegação**: bottom tab bar fixa, filtrada por papel via `temPapel()`
-  (já existe em `frontend/src/lib/auth.ts`). Abas: Caixa (`/caixa` —
-  Administrador/Caixa), Atendimento (`/atendimento` —
-  Administrador/Caixa/Atendente), Estoque (`/estoque`, hub novo —
-  Administrador/Caixa/Estoquista), Clientes (`/clientes` —
-  Administrador/Caixa), Relatórios (`/relatorios` — Administrador/Caixa),
-  Perfil (`/perfil` — todo autenticado). Sem aba duplicada para "itens em
-  baixa" — já fica dentro do hub de Estoque.
-- **Hubs de sub-funcionalidade** (cards dentro da página-pai, não abas
-  próprias): `CaixaPage.tsx` ganha cards de acesso rápido para Mesas,
-  Configuração de preço e Avulso/Delivery (mesmo padrão visual que
-  `RelatoriosPage.tsx` já usa para seus 2 links no topo). Novo
-  `frontend/src/pages/estoque/EstoquePage.tsx` (hub) com cards para
-  Produtos, Itens de estoque e Itens em baixa (`EstoqueBaixoPage.tsx`).
-- **Back-links que mudam** (hoje apontam para `/`, que vai deixar de ser
-  a Home): `MesasPage`/`ConfiguracaoPrecoPage`/`PedidosAvulsosPage` →
-  `/caixa`; `ProdutosPage`/`ItensEstoquePage`/`EstoqueBaixoPage` →
-  `/estoque`; `AdminUsuarios` → `/perfil`. Páginas-raiz de aba
-  (`CaixaPage`, `ComandasPage`, `ClientesPage`, `RelatoriosPage`,
-  `EstoquePage`, `PerfilPage`) perdem o "← Voltar" próprio — a barra já
-  cobre isso. Sub-páginas de detalhe (comanda, cliente, pagamento, pedido
-  avulso, relatório de caixa, contas a receber) não mudam.
-- **Login/Home**: nova rota `/` vira `frontend/src/pages/RedirecionarInicio.tsx`
-  — redirecionador puro por papel (Administrador/Caixa → `/caixa`;
-  Atendente → `/atendimento`; Estoquista → `/estoque`; qualquer outro →
-  `/perfil`). `Login.tsx` e `RotaProtegida.tsx` não mudam. `Home.tsx` é
-  **removida**; seu conteúdo (saudação, papéis, botão Sair, link de
-  administração) migra para `frontend/src/pages/PerfilPage.tsx` (nova
-  aba "Perfil").
-- **Arquitetura de rotas**: novos `frontend/src/components/LayoutPrincipal.tsx`
-  (`<Outlet/>` + barra) e `frontend/src/components/BarraNavegacao.tsx`
-  (config das abas). Em `App.tsx`, todas as rotas autenticadas passam a
-  ficar aninhadas dentro de `<RotaProtegida/>` → `<LayoutPrincipal/>`; os
-  blocos internos por papel continuam exatamente como estão hoje (RBAC
-  não muda, só ganha uma camada de layout em volta). `/login` continua
-  fora dessa árvore.
-- **Visual**: bloco `@theme` novo em `frontend/src/index.css` (hoje só
-  tem `@import "tailwindcss";`) com uma paleta `brand` (tom quente,
-  ex. laranja) para substituir `bg-slate-900` nos botões primários e no
-  estado ativo da barra. Adicionar `lucide-react` (ícones da barra e
-  títulos). Criar `frontend/src/components/ui.tsx` (`Card`,
-  `BotaoPrimario`, `BotaoSecundario`, `Cabecalho`) para reduzir a
-  duplicação de classes Tailwind repetidas em ~20 páginas — migração
-  incremental, feita depois do essencial (barra + hubs) funcionar.
-- **Ordem sugerida**: (1) `lucide-react` + `@theme`; (2) `LayoutPrincipal`
-  + `BarraNavegacao`; (3) `RedirecionarInicio` + `PerfilPage`, remover
-  `Home`; (4) reestruturar `App.tsx`; (5) `EstoquePage` + back-links; (6)
-  `CaixaPage` como hub + back-links; (7) remover "← Voltar" das demais
-  raízes de aba; (8) extrair `ui.tsx` e migrar páginas incrementalmente;
-  (9) rebuild completo + teste manual logando como cada um dos 4 papéis.
-- **Riscos aceitos**: 6 abas para Administrador/Caixa pode ficar denso
-  num celular pequeno (mitigação prevista: rótulo só na aba ativa, se
-  necessário); `lucide-react` é dependência nova (só ícones SVG
-  estáticos); `EstoqueBaixoPage.tsx` continua fisicamente em
-  `pages/relatorios/` por ora (cosmético).
+implementar. O antigo "Ciclo 8 (deploy na VPS Hostinger)" continua
+adiado a pedido do usuário, sem número de ciclo fixo, a retomar quando
+ele decidir (ver `specs/specs.md`).
 
 ### Ciclo 9 — Acesso pelo celular na rede local
 

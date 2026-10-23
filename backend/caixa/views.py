@@ -53,6 +53,27 @@ class MesaViewSet(ModelViewSet):
             return [exige_papel("Administrador", "Caixa", "Atendente")()]
         return [exige_papel(*PAPEIS_CAIXA)()]
 
+    def perform_update(self, serializer):
+        # O status da mesa é derivado do ciclo de vida da comanda (abrir/fechar/
+        # transferir já o ajustam sozinhos). Editar o status manualmente aqui só
+        # é aceito quando não desalinha mesa e comanda — isso evitava que o
+        # caixa deixasse uma mesa marcada "livre" com uma comanda ainda aberta,
+        # o que depois bloqueava a abertura de uma nova comanda nessa mesa.
+        mesa = self.get_object()
+        novo_status = serializer.validated_data.get("status", mesa.status)
+        tem_comanda_aberta = Comanda.objects.filter(mesa=mesa, status=Comanda.ABERTA).exists()
+
+        if novo_status == Mesa.OCUPADA and not tem_comanda_aberta:
+            raise serializers.ValidationError(
+                {"status": "Esta mesa só fica ocupada quando há uma comanda aberta para ela."}
+            )
+        if novo_status == Mesa.LIVRE and tem_comanda_aberta:
+            raise serializers.ValidationError(
+                {"status": "Esta mesa tem uma comanda aberta — feche a comanda antes de liberá-la."}
+            )
+
+        serializer.save()
+
 
 class ConfiguracaoPrecoView(APIView):
     """GET/PUT da configuração de preço atual (RF07)."""
@@ -229,29 +250,35 @@ class PagamentoViewSet(ModelViewSet):
 
         valor_final = valor_bruto - valor_desconto_aplicado
 
-        recebimentos_data = request.data.get("recebimentos") or []
-        if not recebimentos_data:
-            raise serializers.ValidationError({"recebimentos": "Informe ao menos uma forma de pagamento."})
-
         formas_validas = {choice[0] for choice in RecebimentoPagamento.FORMA_CHOICES}
         total_recebido = Decimal("0")
         recebimentos_limpos = []
-        for item in recebimentos_data:
-            forma = item.get("forma")
-            if forma not in formas_validas:
-                raise serializers.ValidationError({"recebimentos": f"Forma de pagamento inválida: {forma}."})
-            try:
-                valor = Decimal(str(item.get("valor") or 0))
-            except Exception:
-                raise serializers.ValidationError({"recebimentos": "Valor inválido numa forma de pagamento."})
-            if valor <= 0:
-                raise serializers.ValidationError(
-                    {"recebimentos": "Cada forma de pagamento precisa ter valor maior que zero."}
+
+        if valor_final == 0:
+            # Comanda sem itens lançados, ou com 100% de desconto: nada a receber —
+            # não exige forma de pagamento (não há "valor maior que zero" para registrar).
+            pass
+        else:
+            recebimentos_data = request.data.get("recebimentos") or []
+            if not recebimentos_data:
+                raise serializers.ValidationError({"recebimentos": "Informe ao menos uma forma de pagamento."})
+
+            for item in recebimentos_data:
+                forma = item.get("forma")
+                if forma not in formas_validas:
+                    raise serializers.ValidationError({"recebimentos": f"Forma de pagamento inválida: {forma}."})
+                try:
+                    valor = Decimal(str(item.get("valor") or 0))
+                except Exception:
+                    raise serializers.ValidationError({"recebimentos": "Valor inválido numa forma de pagamento."})
+                if valor <= 0:
+                    raise serializers.ValidationError(
+                        {"recebimentos": "Cada forma de pagamento precisa ter valor maior que zero."}
+                    )
+                total_recebido += valor
+                recebimentos_limpos.append(
+                    {"forma": forma, "valor": valor, "descricao": item.get("descricao", "")}
                 )
-            total_recebido += valor
-            recebimentos_limpos.append(
-                {"forma": forma, "valor": valor, "descricao": item.get("descricao", "")}
-            )
 
         if total_recebido != valor_final:
             raise serializers.ValidationError(
