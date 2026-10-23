@@ -72,6 +72,12 @@ export default function Home() {
               >
                 Clientes (fiado) →
               </Link>
+              <Link
+                to="/relatorios"
+                className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Relatórios →
+              </Link>
             </>
           )}
 
@@ -88,6 +94,12 @@ export default function Home() {
                 className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Itens de estoque →
+              </Link>
+              <Link
+                to="/relatorios/estoque-baixo"
+                className="block rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Itens em baixa →
               </Link>
             </>
           )}

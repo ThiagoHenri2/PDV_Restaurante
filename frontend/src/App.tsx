@@ -17,6 +17,10 @@ import ClienteDetalhePage from "./pages/clientes/ClienteDetalhePage";
 import ClientesPage from "./pages/clientes/ClientesPage";
 import ItensEstoquePage from "./pages/estoque/ItensEstoquePage";
 import ProdutosPage from "./pages/estoque/ProdutosPage";
+import ContasAReceberPage from "./pages/relatorios/ContasAReceberPage";
+import EstoqueBaixoPage from "./pages/relatorios/EstoqueBaixoPage";
+import RelatorioCaixaPage from "./pages/relatorios/RelatorioCaixaPage";
+import RelatoriosPage from "./pages/relatorios/RelatoriosPage";
 
 export default function App() {
   return (
@@ -41,6 +45,9 @@ export default function App() {
           <Route path="/caixa/avulso/:id" element={<PedidoAvulsoDetalhePage />} />
           <Route path="/clientes" element={<ClientesPage />} />
           <Route path="/clientes/:id" element={<ClienteDetalhePage />} />
+          <Route path="/relatorios" element={<RelatoriosPage />} />
+          <Route path="/relatorios/caixa" element={<RelatorioCaixaPage />} />
+          <Route path="/relatorios/contas-a-receber" element={<ContasAReceberPage />} />
         </Route>
 
         <Route element={<RotaProtegida papeis={["Administrador", "Caixa", "Atendente"]} />}>
@@ -51,6 +58,7 @@ export default function App() {
         <Route element={<RotaProtegida papeis={["Administrador", "Caixa", "Estoquista"]} />}>
           <Route path="/estoque/produtos" element={<ProdutosPage />} />
           <Route path="/estoque/itens" element={<ItensEstoquePage />} />
+          <Route path="/relatorios/estoque-baixo" element={<EstoqueBaixoPage />} />
         </Route>
       </Routes>
     </AuthProvider>

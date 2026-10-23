@@ -17,8 +17,13 @@
 | 4 | Finalização de pagamento (cálculo, desconto, split, fiado) | ✅ Concluído |
 | 5 | Produtos, Avulso/Delivery e Estoque | ✅ Concluído |
 | 6 | Clientes / Fiado | ✅ Concluído |
-| 7 | Dashboard e Relatórios | ⬜ Não iniciado |
-| 8 | Hardening e deploy na VPS Hostinger | ⬜ Não iniciado |
+| 7 | Dashboard e Relatórios | ✅ Concluído |
+| 8 | Reforma visual e navegação persistente | ⬜ Não iniciado |
+| 9 | Acesso via rede local (celular) | ⬜ Não iniciado |
+
+Deploy na VPS Hostinger — **adiado** (decisão explícita do usuário, quer
+melhorar o visual primeiro); retomar sem número de ciclo fixo quando ele
+decidir.
 
 ## Regras de negócio centrais (não mudam entre ciclos)
 
@@ -410,14 +415,48 @@ um `RecebimentoPagamento` com valor > 0; (2) desde o Ciclo 5,
 `estoque.services.baixar_estoque` não valida se há saldo suficiente antes
 de baixar — uma venda pode deixar o estoque negativo sem aviso.
 
-## Próximo ciclo (Ciclo 7 — Dashboard e Relatórios)
+## Ciclo 7 — o que foi entregue
 
-Escopo: RF36–RF39. Dashboard de vendas (faturamento por período, formas
-de pagamento, ticket médio), página de itens em baixa no estoque,
-relatório financeiro de caixa (entradas/saídas por período) e relatório
-de contas a receber (clientes fiado em aberto). Diferente dos ciclos
-anteriores, o app `relatorios` não tem modelos próprios — só agrega dados
-já existentes em `caixa`, `estoque` e `clientes` (ledgers que já estão
-corretos, confirmado pelos testes automatizados de cada ciclo). Risco
-baixo de regra de negócio nova; o cuidado principal é desempenho das
-agregações (RNF03) à medida que o histórico crescer.
+- Novo app `relatorios` (RF36–RF39) sem modelos próprios — só agrega
+  dados já existentes em `caixa`, `estoque` e `clientes` via 4
+  `APIView` somente leitura, todas restritas por papel
+  (`exige_papel`): `RelatorioVendasView`, `RelatorioCaixaView` e
+  `RelatorioContasAReceberView` para Administrador/Caixa;
+  `RelatorioEstoqueBaixoView` também libera Estoquista.
+- `obter_periodo()`: helper comum aos relatórios com filtro de período
+  (`?inicio=&fim=`, formato `AAAA-MM-DD`); sem parâmetros assume do dia 1
+  do mês atual até hoje; valida formato e `inicio <= fim` (400 claro em
+  caso de erro).
+- RF36 (`/api/relatorios/vendas/`): faturamento total, ticket médio e
+  quantidade de vendas somando `Pagamento` (comanda) e `PedidoAvulso`
+  confirmado no período; quebra por forma de pagamento (incluindo
+  `fiado`) e por dia (para gráfico).
+- RF38 (`/api/relatorios/caixa/`): entradas/saídas por sessão de caixa
+  que esteve ativa no período (não só pelas que abriram dentro da
+  janela, para não "perder" movimento de uma sessão que atravessa a
+  borda do período) — abertura, suprimento, sangria, recebido em
+  dinheiro e diferença (esperado × informado, `None` enquanto o caixa
+  está aberto) — com totais agregados.
+- RF37 (`/api/relatorios/estoque-baixo/`): lista de `ItemEstoque` ativos
+  com `estoque_baixo()` verdadeiro (mesmo critério do Ciclo 5, agora
+  também como relatório dedicado).
+- RF39 (`/api/relatorios/contas-a-receber/`): clientes (ativos ou não)
+  com `saldo_devedor() > 0`, ordenados do maior para o menor saldo, com
+  total geral.
+- 16 testes automatizados (`pytest-django`) cobrindo os quatro
+  relatórios: soma correta de pagamento + avulso dentro/fora do
+  período, ticket médio com proteção contra divisão por zero, fiado
+  contando no faturamento, split não duplicando nem perdendo valor,
+  borda de dia no timezone local, sessão de caixa atravessando a borda
+  do período, diferença `None` com caixa aberto, cliente inativo ainda
+  aparecendo em contas a receber, período inválido (400), autenticação
+  e RBAC por papel.
+- Frontend: `frontend/src/lib/relatorios.ts` (chamadas à API) e páginas
+  em `/relatorios` — hub `RelatoriosPage` (links para os 3 relatórios
+  com filtro de período, no mesmo padrão visual usado depois nos hubs do
+  Ciclo 8), `RelatorioCaixaPage`, `ContasAReceberPage` e
+  `EstoqueBaixoPage` (esta acessível também para Estoquista, por isso
+  roteada com os papéis de estoque). Acessíveis pelo menu da `Home` para
+  os papéis correspondentes.
+- Testado manualmente pelo usuário no navegador (dashboard de vendas,
+  relatório de caixa, contas a receber, itens em baixa).
